@@ -1,0 +1,16 @@
+0:{"children":["advertisement"]}
+1:{"children":["ToastDuration_UNKNOWN"]}
+2:{"children":["topStart"]}
+3:{"children":["Bengaluru / Remote India"]}
+4:{"children":["Experience"]}
+5:{"children":["Member Technical Staff -1"]}
+6:{"children":["Aquera \u00b7 Full-time"]}
+7:{"children":["Feb 2025 - Present \u00b7 1 yr 7 mos"]}
+8:{"children":["Bengaluru, Karnataka, India \u00b7 On-site"]}
+9:{"children":["Worked on production integrations and backend APIs."]}
+10:{"children":["Skills: Microservices Architecture \u2022 AWS Lambda \u2022 Node.js \u2022 API Development \u2022 DevOps \u2022 Team Leadership"]}
+11:{"children":["Software Engineer"]}
+12:{"children":["Acme Labs \u00b7 Internship"]}
+13:{"children":["Jun 2020 - Dec 2021 \u00b7 1 yr 7 mos"]}
+14:{"children":["Remote"]}
+15:{"children":["Skills: PostgreSQL \u2022 Queues"]}
