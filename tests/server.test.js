@@ -74,6 +74,14 @@ test("About 404 does not fail the whole profile response", async (t) => {
       return new Response("Not found", { status: 404 });
     }
 
+    if (requestUrl.includes("/details/languages/")) {
+      return rscResponse(readFixture("languages-screen-rsc.txt"));
+    }
+
+    if (requestUrl.includes("pagers.profile.details.languages")) {
+      return rscResponse(readFixture("languages-empty-rsc.txt"));
+    }
+
     throw new Error(`Unexpected LinkedIn request: ${requestUrl} ${options?.body || ""}`);
   };
 
@@ -174,6 +182,14 @@ test("profile response includes About from the read-only profile component", asy
       return new Response("Not found", { status: 404 });
     }
 
+    if (requestUrl.includes("/details/languages/")) {
+      return rscResponse(readFixture("languages-screen-rsc.txt"));
+    }
+
+    if (requestUrl.includes("pagers.profile.details.languages")) {
+      return rscResponse(readFixture("languages-pagination-page-2-rsc.txt"));
+    }
+
     throw new Error(`Unexpected LinkedIn request: ${requestUrl}`);
   };
 
@@ -192,6 +208,12 @@ test("profile response includes About from the read-only profile component", asy
 
   assert.equal(response.statusCode, 200);
   assert.match(response.body.about, /Backend \/ Full Stack Engineer/);
+  assert.deepEqual(response.body.languages, [
+    {
+      name: "Hindi",
+      proficiency: "Native or bilingual proficiency"
+    }
+  ]);
   assert.deepEqual(response.body.meta.warnings, []);
 });
 

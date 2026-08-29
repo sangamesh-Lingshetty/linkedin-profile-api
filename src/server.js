@@ -7,6 +7,7 @@ import { getBasicProfile } from "./basic-profile.js";
 import { getCertifications } from "./certifications.js";
 import { getEducation } from "./education.js";
 import { getExperience } from "./experience.js";
+import { getLanguages } from "./languages.js";
 import { getSkills } from "./skills.js";
 import { AppError } from "./linkedin-client.js";
 import { extractVanityName, normalizeProfileUrl } from "./linkedin-url.js";
@@ -34,23 +35,24 @@ app.post("/api/profile", async (req, res) => {
     }
 
     vanityName = extractVanityName(req.body.profileUrl);
-    const [basicProfileSection, aboutSection, experienceSection, educationSection, skillsSection, certificationsSection] = await Promise.all([
+    const [basicProfileSection, aboutSection, experienceSection, educationSection, skillsSection, certificationsSection, languagesSection] = await Promise.all([
       safeSection(req, "profile", () => getBasicProfile(vanityName), emptyBasicProfile()),
       safeSection(req, "about", () => getAbout(vanityName), null),
       safeSection(req, "experience", () => getExperience(vanityName), []),
       safeSection(req, "education", () => getEducation(vanityName), []),
       safeSection(req, "skills", () => getSkills(vanityName), []),
-      safeSection(req, "certifications", () => getCertifications(vanityName), [])
+      safeSection(req, "certifications", () => getCertifications(vanityName), []),
+      safeSection(req, "languages", () => getLanguages(vanityName), [])
     ]);
     const basicProfile = basicProfileSection.value;
-    const languages = [];
     const warnings = [
       ...basicProfileSection.warnings,
       ...aboutSection.warnings,
       ...experienceSection.warnings,
       ...educationSection.warnings,
       ...skillsSection.warnings,
-      ...certificationsSection.warnings
+      ...certificationsSection.warnings,
+      ...languagesSection.warnings
     ];
 
     console.info({
@@ -68,14 +70,15 @@ app.post("/api/profile", async (req, res) => {
         experienceSection.durationMs +
         educationSection.durationMs +
         skillsSection.durationMs +
-        certificationsSection.durationMs,
+        certificationsSection.durationMs +
+        languagesSection.durationMs,
       profileFound: Boolean(basicProfile.name),
       aboutFound: Boolean(aboutSection.value),
       experienceCount: experienceSection.value.length,
       educationCount: educationSection.value.length,
       skillsCount: skillsSection.value.length,
       certificationsCount: certificationsSection.value.length,
-      languagesCount: languages.length,
+      languagesCount: languagesSection.value.length,
       warnings
     });
 
@@ -97,7 +100,7 @@ app.post("/api/profile", async (req, res) => {
       education: educationSection.value,
       skills: skillsSection.value,
       certifications: certificationsSection.value,
-      languages,
+      languages: languagesSection.value,
       meta: {
         source: "linkedin",
         partial: warnings.length > 0,

@@ -1,0 +1,8 @@
+1:"$Sreact.fragment"
+2:{"children":["Languages"]}
+3:["$","div",null,{"children":["$L4","$L5"]}]
+4:{"children":["English"]}
+5:{"children":["Professional working proficiency"]}
+6:["$","div",null,{"children":["$L7"]}]
+7:{"children":["Kannada"]}
+8:{"pagerId":"com.linkedin.sdui.pagers.profile.details.languages","paginationRequest":{"requestedArguments":{"payload":{"vanityName":"example","profileId":"ACoAAALanguagesExample123","start":10,"count":10}}}}

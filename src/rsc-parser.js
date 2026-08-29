@@ -14,49 +14,78 @@ const SEPARATOR_RE = /\s*(?:\\u00b7|\u00b7|\u00c2\u00b7|\|)\s*/;
 const EDUCATION_PAGER_ID = "com.linkedin.sdui.pagers.profile.details.education";
 const SKILLS_PAGER_ID = "com.linkedin.sdui.pagers.profile.details.skills";
 const CERTIFICATIONS_PAGER_ID = "com.linkedin.sdui.pagers.profile.details.certifications";
+const LANGUAGES_PAGER_ID = "com.linkedin.sdui.pagers.profile.details.languages";
 
 export function parseExperience(raw) {
   try {
-    const texts = extractSimpleText(raw);
+    const items = extractStructuralItems(raw);
     const experiences = [];
+    let activeParent = null;
+    let pendingTitle = null;
+    let pendingCompanyLine = null;
 
-    for (let i = 0; i < texts.length; i++) {
-      const dateText = texts[i].text;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const texts = item.texts.filter((text) => !isExperienceParserNoise(text));
+      const dateIndex = texts.findIndex((text) => EXPERIENCE_DATE_RANGE_RE.test(text));
 
-      if (!EXPERIENCE_DATE_RANGE_RE.test(dateText)) {
+      if (texts.length === 0) {
         continue;
       }
 
-      const companyIndex = findPreviousCompanyIndex(texts, i);
-      if (companyIndex === -1) {
+      if (isExperienceGroupParent(texts)) {
+        activeParent = parseExperienceGroupParent(texts);
+        pendingTitle = null;
+        pendingCompanyLine = null;
         continue;
       }
 
-      const titleItem = findPreviousTitle(texts, companyIndex);
-      if (!titleItem) {
+      if (dateIndex === -1) {
+        if (texts.length === 1 && isRoleTitleCandidate(texts[0])) {
+          pendingTitle = texts[0];
+          continue;
+        }
+
+        if (texts.length === 1 && isCompanyEmploymentLine(texts[0])) {
+          pendingCompanyLine = texts[0];
+          activeParent = null;
+          continue;
+        }
+
         continue;
       }
 
-      const companyParts = splitOnce(texts[companyIndex].text);
-      const dateParts = splitOnce(dateText);
-      const locationParts = parseLocation(findNextLocation(texts, i));
-      const nextBoundary = findNextDateBoundary(texts, i, EXPERIENCE_DATE_RANGE_RE);
-      const nearbyTexts = texts.slice(titleItem.position, nextBoundary);
+      const parsed = parseExperienceItem(
+        texts,
+        dateIndex,
+        activeParent,
+        pendingTitle,
+        pendingCompanyLine,
+        items,
+        i
+      );
 
-      experiences.push({
-        title: titleItem.text,
-        company: companyParts[0],
-        employmentType: companyParts[1],
-        dateRange: dateParts[0],
-        duration: dateParts[1] || extractDuration(dateText),
-        location: locationParts.location,
-        workMode: locationParts.workMode,
-        description: extractExperienceDescription(nearbyTexts),
-        skills: extractExperienceSkills(nearbyTexts)
-      });
+      pendingTitle = null;
+      pendingCompanyLine = null;
+
+      if (!parsed.title || !parsed.dateRange) {
+        continue;
+      }
+
+      experiences.push(parsed);
     }
 
-    return dedupe(experiences, ["title", "company", "dateRange"]);
+    const structuralEntries = dedupe(experiences.filter(isValidExperienceEntry), [
+      "title",
+      "company",
+      "dateRange"
+    ]);
+    const flatEntries = parseFlatExperience(raw).filter(isValidExperienceEntry);
+    const cleanStructuralEntries = structuralEntries.filter((entry) =>
+      !isSuspiciousStructuredExperience(entry, flatEntries)
+    );
+
+    return dedupe([...cleanStructuralEntries, ...flatEntries], ["title", "company", "dateRange"]);
   } catch {
     throw new AppError("EXTRACTION_FAILED", "LinkedIn experience extraction failed.", 502);
   }
@@ -105,39 +134,56 @@ export function extractEducationDetailsSectionRef(raw) {
 
 export function parseEducation(raw) {
   try {
-    const texts = extractSimpleText(raw);
+    const items = extractStructuralItems(raw);
     const education = [];
+    let current = null;
+    let pendingLogo = null;
+    let pendingExtras = emptyEducationExtras();
 
-    for (let i = 0; i < texts.length; i++) {
-      if (!EDUCATION_DATE_RANGE_RE.test(texts[i].text)) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const texts = item.texts.filter((text) => !isEducationParserNoise(text));
+      const first = texts[0];
+
+      if (item.image) {
+        if (current && !current.schoolLogo) {
+          current.schoolLogo = item.image;
+        } else {
+          pendingLogo = item.image;
+        }
+      }
+
+      if (texts.length === 0) {
         continue;
       }
 
-      const degreeItem = findPreviousEducationText(texts, i - 1, 6);
-      const schoolItem = degreeItem
-        ? findPreviousEducationText(texts, degreeItem.position - 1, 8)
-        : null;
+      if (isEducationSchoolStart(items, i)) {
+        if (current) {
+          education.push(normalizeEducationEntry(current));
+        }
 
-      if (!schoolItem || !degreeItem) {
+        current = {
+          school: first,
+          degree: null,
+          fieldOfStudy: null,
+          dateRange: null,
+          grade: pendingExtras.grade,
+          activities: [...pendingExtras.activities],
+          description: pendingExtras.description,
+          schoolLogo: pendingLogo
+        };
+        applyEducationTexts(current, texts.slice(1));
+        pendingLogo = null;
+        pendingExtras = emptyEducationExtras();
         continue;
       }
 
-      const windowStart = Math.max(0, schoolItem.position - 10);
-      const nextBoundary = findNextDateBoundary(texts, i, EDUCATION_DATE_RANGE_RE);
-      const nearbyTexts = texts.slice(windowStart, nextBoundary);
-      const nearbyRaw = raw.slice(texts[windowStart].index, texts[nextBoundary]?.index || raw.length);
-      const degreeParts = splitDegree(degreeItem.text);
+      const target = current || pendingExtras;
+      applyEducationTexts(target, texts);
+    }
 
-      education.push({
-        school: schoolItem.text,
-        degree: degreeParts.degree,
-        fieldOfStudy: degreeParts.fieldOfStudy,
-        dateRange: texts[i].text,
-        grade: extractEducationGrade(nearbyTexts, nearbyRaw),
-        activities: extractEducationActivities(nearbyTexts, nearbyRaw),
-        description: extractEducationDescription(nearbyTexts, nearbyRaw),
-        schoolLogo: extractSchoolLogo(nearbyRaw)
-      });
+    if (current) {
+      education.push(normalizeEducationEntry(current));
     }
 
     return dedupe(education, ["school", "degree", "dateRange"]);
@@ -233,6 +279,72 @@ export function parseCertifications(raw) {
     return dedupe(certifications, ["id"]);
   } catch {
     throw new AppError("EXTRACTION_FAILED", "LinkedIn certifications extraction failed.", 502);
+  }
+}
+
+export function extractLanguagesProfileId(raw) {
+  return extractStringValue(raw, "profileId");
+}
+
+export function extractNextLanguagesStart(raw) {
+  const starts = extractPaginationStarts(raw, LANGUAGES_PAGER_ID);
+  return starts.length > 0 ? starts[0] : null;
+}
+
+export function parseLanguages(raw) {
+  try {
+    const languages = [];
+    let pendingName = null;
+
+    for (const item of extractSimpleText(raw)) {
+      const texts = [item.text]
+        .map(clean)
+        .filter(Boolean)
+        .filter(isLanguageTextCandidate);
+
+      if (texts.length === 0) {
+        continue;
+      }
+
+      const parsed = texts.length > 1 ? parseLanguageTexts(texts) : null;
+      if (parsed) {
+        languages.push(parsed);
+        pendingName = null;
+        continue;
+      }
+
+      if (texts.length === 1 && pendingName && isLanguageProficiency(texts[0])) {
+        languages.push({
+          name: pendingName,
+          proficiency: texts[0]
+        });
+        pendingName = null;
+        continue;
+      }
+
+      if (texts.length === 1 && isLanguageNameCandidate(texts[0])) {
+        if (pendingName) {
+          languages.push({
+            name: pendingName,
+            proficiency: null
+          });
+        }
+
+        pendingName = texts[0];
+        continue;
+      }
+    }
+
+    if (pendingName) {
+      languages.push({
+        name: pendingName,
+        proficiency: null
+      });
+    }
+
+    return dedupe(languages, ["name"]);
+  } catch {
+    throw new AppError("EXTRACTION_FAILED", "LinkedIn languages extraction failed.", 502);
   }
 }
 
@@ -798,6 +910,558 @@ function extractStringValue(raw, key) {
   }
 
   return null;
+}
+
+function parseLanguageTexts(texts) {
+  const nameIndex = texts.findIndex(isLanguageNameCandidate);
+
+  if (nameIndex === -1) {
+    return null;
+  }
+
+  const proficiency = texts.slice(nameIndex + 1).find(isLanguageProficiency) || null;
+
+  return {
+    name: texts[nameIndex],
+    proficiency
+  };
+}
+
+function isLanguageTextCandidate(value) {
+  return (
+    Boolean(value) &&
+    !value.startsWith("$") &&
+    !isNoise(value) &&
+    !isRscRef(value) &&
+    !isAnyRscRef(value) &&
+    !/^(Nothing to see for now|Languages that .+ adds will appear here\.)$/i.test(value) &&
+    !/^Add language$/i.test(value) &&
+    !/^Edit language$/i.test(value) &&
+    !/^(?:pagerId|paginationRequest|requestedArguments|payload|vanityName|profileId|start|count|screenId|knownTemplateIds|requestMetadata|states|key|value|namespace|MemoryNamespace)$/i.test(value) &&
+    !/^com\.linkedin\./i.test(value) &&
+    !/^https?:\/\//i.test(value)
+  );
+}
+
+function isLanguageNameCandidate(value) {
+  return (
+    Boolean(value) &&
+    value.length > 1 &&
+    value.length < 80 &&
+    !isLanguageProficiency(value) &&
+    !isLanguageTextNoise(value)
+  );
+}
+
+function isLanguageProficiency(value) {
+  return /\bproficiency$/i.test(value || "");
+}
+
+function isLanguageTextNoise(value) {
+  return /^(Languages|advertisement|Privacy Policy|User Agreement|Pages Terms|Cookie Policy|Copyright Policy)$/i.test(value);
+}
+
+function extractStructuralItems(raw) {
+  const records = extractRscRecordList(raw);
+  const byId = new Map(records.map((record) => [record.id, record]));
+  const compositeTextRefs = new Set();
+
+  for (const record of records) {
+    const childTexts = directChildTexts(record, byId);
+
+    if (isCompactCompositeRecord(record, childTexts)) {
+      for (const child of directTextChildren(record, byId)) {
+        compositeTextRefs.add(child.id);
+      }
+    }
+  }
+
+  const items = [];
+
+  for (const record of records) {
+    const ownTexts = extractRecordTexts(record.value);
+    const childTexts = directChildTexts(record, byId);
+
+    if (isCompactCompositeRecord(record, childTexts)) {
+      items.push({
+        id: record.id,
+        texts: childTexts,
+        image: extractLinkedInImage(record.value)
+      });
+      continue;
+    }
+
+    if (ownTexts.length > 0 && !compositeTextRefs.has(record.id)) {
+      items.push({
+        id: record.id,
+        texts: ownTexts,
+        image: extractLinkedInImage(record.value)
+      });
+      continue;
+    }
+
+    const image = extractLinkedInImage(record.value);
+    if (image) {
+      items.push({
+        id: record.id,
+        texts: [],
+        image
+      });
+    }
+  }
+
+  return items;
+}
+
+function extractRscRecordList(raw) {
+  const records = [];
+  const regex = /(?:^|\n)([A-Za-z0-9]+):([\s\S]*?)(?=\n[A-Za-z0-9]+:|$)/g;
+  let match;
+
+  while ((match = regex.exec(raw))) {
+    records.push({
+      id: match[1],
+      value: decodeTextRecord(match[2])
+    });
+  }
+
+  return records;
+}
+
+function isCompactCompositeRecord(record, childTexts) {
+  return (
+    childTexts.length >= 2 &&
+    childTexts.length <= 5 &&
+    (
+      record.value.length < 8000 ||
+      childTexts.some((text) => EXPERIENCE_DATE_RANGE_RE.test(text) || EDUCATION_DATE_RANGE_RE.test(text)) ||
+      childTexts.some(isCompanyEmploymentLine)
+    )
+  );
+}
+
+function directChildTexts(record, byId) {
+  return directTextChildren(record, byId).flatMap((child) => extractRecordTexts(child.value));
+}
+
+function directTextChildren(record, byId) {
+  return extractLocalRefs(record.value)
+    .map((ref) => byId.get(ref))
+    .filter(Boolean)
+    .filter((child) => extractRecordTexts(child.value).length > 0);
+}
+
+function extractLocalRefs(value) {
+  const refs = [];
+  const regex = /"\$L([A-Za-z0-9]+)"/g;
+  let match;
+
+  while ((match = regex.exec(value))) {
+    refs.push(match[1]);
+  }
+
+  return [...new Set(refs)];
+}
+
+function extractRecordTexts(record) {
+  const simpleTexts = extractSimpleText(record).map((item) => item.text);
+  const texts = simpleTexts.length > 0
+    ? simpleTexts
+    : extractNestedRecordTexts(record);
+
+  return [...new Set(texts)]
+    .map(clean)
+    .filter((text) => text && !isRscRef(text) && text !== "$");
+}
+
+function extractNestedRecordTexts(record) {
+  if (!record.includes("\"children\"") && !record.includes("\"textProps\"")) {
+    return [];
+  }
+
+  return extractDecodedStrings(record).filter(isVisibleStructuralText);
+}
+
+function parseFlatExperience(raw) {
+  const texts = extractSimpleText(raw);
+  const experiences = [];
+
+  for (let i = 0; i < texts.length; i++) {
+    const dateText = texts[i].text;
+
+    if (!EXPERIENCE_DATE_RANGE_RE.test(dateText)) {
+      continue;
+    }
+
+    const companyIndex = findPreviousCompanyIndex(texts, i);
+    if (companyIndex === -1) {
+      continue;
+    }
+
+    const titleItem = findPreviousTitle(texts, companyIndex);
+    if (!titleItem) {
+      continue;
+    }
+
+    const companyParts = splitOnce(texts[companyIndex].text);
+    const dateParts = splitOnce(dateText);
+    const locationParts = parseLocation(findNextLocation(texts, i));
+    const nextBoundary = findNextDateBoundary(texts, i, EXPERIENCE_DATE_RANGE_RE);
+    const nearbyTexts = texts.slice(titleItem.position, nextBoundary);
+
+    experiences.push({
+      title: titleItem.text,
+      company: companyParts[0],
+      employmentType: companyParts[1],
+      dateRange: dateParts[0],
+      duration: DURATION_RE.test(dateParts[1] || "") ? dateParts[1] : extractDuration(dateText),
+      location: locationParts.location,
+      workMode: locationParts.workMode,
+      description: extractExperienceDescription(nearbyTexts),
+      skills: extractExperienceSkills(nearbyTexts)
+    });
+  }
+
+  return dedupe(experiences, ["title", "company", "dateRange"]);
+}
+
+function isValidExperienceEntry(entry) {
+  return (
+    Boolean(entry.title) &&
+    Boolean(entry.dateRange) &&
+    !isLocationLike(entry.company) &&
+    !isEmploymentType(entry.company) &&
+    !DURATION_RE.test(entry.company || "") &&
+    !DURATION_RE.test(entry.employmentType || "")
+  );
+}
+
+function isSuspiciousStructuredExperience(entry, flatEntries) {
+  const replacement = flatEntries.find((flatEntry) => flatEntry.dateRange === entry.dateRange);
+
+  return (
+    Boolean(replacement) &&
+    (
+      !entry.employmentType ||
+      isLongSentence(entry.location) ||
+      (entry.company && !isCompanyEmploymentLine(`${entry.company} · ${entry.employmentType || ""}`))
+    )
+  );
+}
+
+function isLongSentence(value) {
+  return Boolean(value) && value.length > 90 && /[.!?]/.test(value);
+}
+
+function isExperienceGroupParent(texts) {
+  return (
+    texts.length >= 2 &&
+    isCompanyNameCandidate(texts[0]) &&
+    isCompanySummaryLine(texts[1]) &&
+    !EXPERIENCE_DATE_RANGE_RE.test(texts[1])
+  );
+}
+
+function parseExperienceGroupParent(texts) {
+  const summaryParts = splitOnce(texts[1]);
+  const locationText = texts.find((text, index) => index > 1 && isLocationLine(text));
+  const locationParts = isWorkMode(locationText)
+    ? { location: null, workMode: locationText }
+    : parseLocation(locationText);
+
+  return {
+    company: texts[0],
+    employmentType: isEmploymentType(summaryParts[0]) ? summaryParts[0] : null,
+    location: locationParts.location,
+    workMode: locationParts.workMode
+  };
+}
+
+function parseExperienceItem(
+  texts,
+  dateIndex,
+  activeParent,
+  pendingTitle,
+  pendingCompanyLine,
+  items,
+  itemIndex
+) {
+  const dateParts = splitOnce(texts[dateIndex]);
+  const inItemTitle = findRoleTitleBeforeDate(texts, dateIndex);
+  const inItemCompanyLine = texts.slice(0, dateIndex).find(isCompanyEmploymentLine);
+  const title = inItemTitle || pendingTitle;
+  const companyLine = inItemCompanyLine || pendingCompanyLine;
+  const companyParts = companyLine ? splitOnce(companyLine) : [null, null];
+  const lookaheadTexts = collectExperienceLookaheadTexts(items, itemIndex);
+  const locationText =
+    texts.slice(dateIndex + 1).find(isLocationLine) ||
+    lookaheadTexts.find(isLocationLine) ||
+    null;
+  const locationParts = parseLocation(locationText);
+  const skills = extractExperienceSkillsFromValues([...texts, ...lookaheadTexts]);
+
+  return {
+    title,
+    company: companyParts[0] || activeParent?.company || null,
+    employmentType: companyParts[1] || activeParent?.employmentType || null,
+    dateRange: dateParts[0],
+    duration: DURATION_RE.test(dateParts[1] || "") ? dateParts[1] : extractDuration(texts[dateIndex]),
+    location: locationParts.location || activeParent?.location || null,
+    workMode: locationParts.workMode || activeParent?.workMode || null,
+    description: null,
+    skills
+  };
+}
+
+function findRoleTitleBeforeDate(texts, dateIndex) {
+  for (let i = dateIndex - 1; i >= 0; i--) {
+    const text = texts[i];
+
+    if (isRoleTitleCandidate(text)) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
+function collectExperienceLookaheadTexts(items, itemIndex) {
+  const texts = [];
+
+  for (let i = itemIndex + 1; i < Math.min(items.length, itemIndex + 5); i++) {
+    const nextTexts = items[i].texts.filter((text) => !isExperienceParserNoise(text));
+
+    if (nextTexts.some((text) => EXPERIENCE_DATE_RANGE_RE.test(text)) || isExperienceGroupParent(nextTexts)) {
+      break;
+    }
+
+    texts.push(...nextTexts);
+  }
+
+  return texts;
+}
+
+function extractExperienceSkillsFromValues(values) {
+  const skillsText = values.find((text) => /^Skills:/i.test(text));
+  if (!skillsText) {
+    return [];
+  }
+
+  return splitList(skillsText.replace(/^Skills:\s*/i, ""));
+}
+
+function isCompanyEmploymentLine(value) {
+  const parts = value.split(SEPARATOR_RE).map(clean).filter(Boolean);
+  return parts.length >= 2 && isCompanyNameCandidate(parts[0]) && isEmploymentType(parts[1]);
+}
+
+function isCompanySummaryLine(value) {
+  const parts = value.split(SEPARATOR_RE).map(clean).filter(Boolean);
+  return parts.some(isEmploymentType) || parts.some((part) => DURATION_RE.test(part));
+}
+
+function isRoleTitleCandidate(value) {
+  return (
+    Boolean(value) &&
+    value.length > 1 &&
+    value.length < 180 &&
+    !isNoise(value) &&
+    !isExperienceParserNoise(value) &&
+    !EXPERIENCE_DATE_RANGE_RE.test(value) &&
+    !isCompanyEmploymentLine(value) &&
+    !isCompanySummaryLine(value) &&
+    !isLocationLine(value) &&
+    !/^Skills:/i.test(value)
+  );
+}
+
+function isCompanyNameCandidate(value) {
+  return (
+    Boolean(value) &&
+    value.length > 1 &&
+    value.length < 180 &&
+    !isNoise(value) &&
+    !isEmploymentType(value) &&
+    !isLocationLike(value) &&
+    !DURATION_RE.test(value) &&
+    !EXPERIENCE_DATE_RANGE_RE.test(value) &&
+    !/^Skills:/i.test(value)
+  );
+}
+
+function isExperienceParserNoise(value) {
+  return (
+    isRscRef(value) ||
+    /^(Experience|LinkedIn helped me get this job|Privacy Policy|User Agreement|Pages Terms|Cookie Policy|Copyright Policy)$/i.test(value)
+  );
+}
+
+function isLocationLine(value) {
+  return isLocationLike(value) || value.split(SEPARATOR_RE).some(isWorkMode);
+}
+
+function isLocationLike(value) {
+  return (
+    Boolean(value) &&
+    (
+      isWorkMode(value) ||
+      /,\s*[A-Za-z]/.test(value) ||
+      /\b(?:Remote|On-site|Onsite|Hybrid|Bengaluru|Bangalore|India|Karnataka|Mysore|Road)\b/i.test(value)
+    )
+  );
+}
+
+function isEmploymentType(value) {
+  return /^(Full-time|Part-time|Contract|Internship|Freelance|Self-employed|Temporary|Apprenticeship)$/i.test(value || "");
+}
+
+function emptyEducationExtras() {
+  return {
+    grade: null,
+    activities: [],
+    description: null
+  };
+}
+
+function isEducationSchoolStart(items, index) {
+  const text = items[index].texts.find(Boolean);
+  const sameItemDegree = items[index].texts[1];
+  const sameItemDate = items[index].texts.find((value) => EDUCATION_DATE_RANGE_RE.test(value));
+  const nextText = nextEducationText(items, index + 1);
+  const followingText = nextEducationText(items, index + 2);
+
+  return (
+    Boolean(text) &&
+    !isEducationParserNoise(text) &&
+    !isEducationFieldText(text) &&
+    !EDUCATION_DATE_RANGE_RE.test(text) &&
+    (
+      (
+        Boolean(sameItemDegree) &&
+        !isEducationFieldText(sameItemDegree) &&
+        !EDUCATION_DATE_RANGE_RE.test(sameItemDegree) &&
+        Boolean(sameItemDate)
+      ) ||
+      (
+        Boolean(nextText) &&
+        !isEducationFieldText(nextText) &&
+        !EDUCATION_DATE_RANGE_RE.test(nextText) &&
+        Boolean(followingText) &&
+        EDUCATION_DATE_RANGE_RE.test(followingText)
+      )
+    )
+  );
+}
+
+function nextEducationText(items, start) {
+  for (let i = start; i < items.length; i++) {
+    const text = items[i].texts.find((value) => value && !isEducationParserNoise(value));
+    if (text) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
+function applyEducationTexts(target, texts) {
+  let inActivities = false;
+  let inDescription = false;
+  let descriptionContinued = false;
+
+  for (const text of texts) {
+    if (EDUCATION_DATE_RANGE_RE.test(text)) {
+      target.dateRange = text;
+      inActivities = false;
+      inDescription = false;
+      descriptionContinued = false;
+      continue;
+    }
+
+    if (/^Grade:\s*/i.test(text)) {
+      target.grade = clean(text.replace(/^Grade:\s*/i, ""));
+      inActivities = false;
+      inDescription = false;
+      descriptionContinued = false;
+      continue;
+    }
+
+    if (/^Activities(?: and societies)?:\s*/i.test(text)) {
+      const activities = splitList(cleanActivityLabel(text.replace(/^Activities(?: and societies)?:\s*/i, "")));
+      target.activities = activities.length > 0 ? activities : target.activities || [];
+      inActivities = true;
+      inDescription = false;
+      descriptionContinued = false;
+      continue;
+    }
+
+    if (inActivities && isArrowBullet(text)) {
+      target.activities = [...(target.activities || []), stripArrowBullet(text)];
+      continue;
+    }
+
+    if (/^(Description:|Relevant Coursework:)/i.test(text)) {
+      target.description = clean(text);
+      inActivities = false;
+      inDescription = true;
+      descriptionContinued = false;
+      continue;
+    }
+
+    if (
+      inDescription &&
+      !descriptionContinued &&
+      !isEducationFieldText(text) &&
+      !EDUCATION_DATE_RANGE_RE.test(text)
+    ) {
+      target.description = clean(`${target.description || ""} ${text}`);
+      descriptionContinued = true;
+      continue;
+    }
+
+    if (target.school && !target.degree) {
+      const degreeParts = splitDegree(text);
+      target.degree = degreeParts.degree;
+      target.fieldOfStudy = degreeParts.fieldOfStudy;
+    }
+  }
+}
+
+function normalizeEducationEntry(entry) {
+  return {
+    school: entry.school,
+    degree: entry.degree,
+    fieldOfStudy: entry.fieldOfStudy,
+    dateRange: entry.dateRange,
+    grade: entry.grade,
+    activities: entry.activities || [],
+    description: entry.description,
+    schoolLogo: entry.schoolLogo
+  };
+}
+
+function isEducationFieldText(value) {
+  return /^(Grade:|Activities(?: and societies)?:|Description:|Relevant Coursework:)/i.test(value);
+}
+
+function isEducationParserNoise(value) {
+  return isRscRef(value) || /^(Education|advertisement)$/i.test(value);
+}
+
+function isVisibleStructuralText(value) {
+  const text = clean(value);
+
+  return (
+    Boolean(text) &&
+    !isStringToken(text) &&
+    !isRscRef(text) &&
+    !isAnyRscRef(text) &&
+    !/^https?:\/\//i.test(text) &&
+    !/^urn:li:/i.test(text) &&
+    !/^proto\./i.test(text) &&
+    !/^[._a-z0-9-]{8,}$/i.test(text) &&
+    !/^(?:className|style|children|textProps|fontFamily|fontSize|fontStyle|fontWeight|lineHeight|textAlign|renderPayload|rootUrl|suffixUrl|imageRenditions|width|height|requestMetadata|payload)$/i.test(text)
+  );
 }
 
 function parseProfileCardAbout(raw) {
