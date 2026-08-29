@@ -48,6 +48,12 @@ export async function linkedinRequest({
       ...headers
     };
 
+    for (const [name, value] of Object.entries(requestHeaders)) {
+      if (value === undefined || value === null) {
+        delete requestHeaders[name];
+      }
+    }
+
     const response = await fetch(new URL(path, LINKEDIN_BASE_URL), {
       method,
       signal: controller.signal,
@@ -62,7 +68,6 @@ export async function linkedinRequest({
     console.log({
       status: response.status,
       contentType,
-      responseStart: text.slice(0, 80),
       durationMs
     });
 

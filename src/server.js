@@ -1,7 +1,12 @@
 import "dotenv/config";
 import crypto from "node:crypto";
+import { pathToFileURL } from "node:url";
 import express from "express";
+import { getBasicProfile } from "./basic-profile.js";
+import { getCertifications } from "./certifications.js";
+import { getEducation } from "./education.js";
 import { getExperience } from "./experience.js";
+import { getSkills } from "./skills.js";
 import { AppError } from "./linkedin-client.js";
 import { extractVanityName, normalizeProfileUrl } from "./linkedin-url.js";
 
@@ -28,23 +33,76 @@ app.post("/api/profile", async (req, res) => {
     }
 
     vanityName = extractVanityName(req.body.profileUrl);
-    const result = await getExperience(vanityName);
+    const [basicProfileSection, experienceSection, educationSection, skillsSection, certificationsSection] = await Promise.all([
+      safeSection(req, "profile", () => getBasicProfile(vanityName), emptyBasicProfile()),
+      safeSection(req, "experience", () => getExperience(vanityName), []),
+      safeSection(req, "education", () => getEducation(vanityName), []),
+      safeSection(req, "skills", () => getSkills(vanityName), []),
+      safeSection(req, "certifications", () => getCertifications(vanityName), [])
+    ]);
+    const basicProfile = basicProfileSection.value;
+    const aboutSection = basicProfile.about
+      ? sectionFromBasicProfile(basicProfile.about, basicProfileSection)
+      : unsupportedSection(null, "about section unavailable");
+    const languages = [];
+    const warnings = [
+      ...basicProfileSection.warnings,
+      ...aboutSection.warnings,
+      ...experienceSection.warnings,
+      ...educationSection.warnings,
+      ...skillsSection.warnings,
+      ...certificationsSection.warnings
+    ];
 
     console.info({
       requestId: req.id,
       vanityName,
-      linkedinStatus: result.linkedinStatus,
-      durationMs: result.durationMs,
-      extractionCount: result.entries.length
+      profileLinkedinStatus: basicProfileSection.linkedinStatus,
+      aboutLinkedinStatus: aboutSection.linkedinStatus,
+      experienceLinkedinStatus: experienceSection.linkedinStatus,
+      educationLinkedinStatus: educationSection.linkedinStatus,
+      skillsLinkedinStatus: skillsSection.linkedinStatus,
+      certificationsLinkedinStatus: certificationsSection.linkedinStatus,
+      durationMs:
+        basicProfileSection.durationMs +
+        aboutSection.durationMs +
+        experienceSection.durationMs +
+        educationSection.durationMs +
+        skillsSection.durationMs +
+        certificationsSection.durationMs,
+      profileFound: Boolean(basicProfile.name),
+      aboutFound: Boolean(aboutSection.value),
+      experienceCount: experienceSection.value.length,
+      educationCount: educationSection.value.length,
+      skillsCount: skillsSection.value.length,
+      certificationsCount: certificationsSection.value.length,
+      languagesCount: languages.length,
+      warnings
     });
 
     res.json({
       profileUrl: normalizeProfileUrl(vanityName),
       vanityName,
-      experience: result.entries,
+      profile: {
+        name: basicProfile.name,
+        headline: basicProfile.headline,
+        location: basicProfile.location,
+        pronouns: basicProfile.pronouns
+      },
+      images: {
+        profile: basicProfile.profileImage,
+        background: basicProfile.backgroundImage
+      },
+      about: aboutSection.value,
+      experience: experienceSection.value,
+      education: educationSection.value,
+      skills: skillsSection.value,
+      certifications: certificationsSection.value,
+      languages,
       meta: {
         source: "linkedin",
-        partial: true
+        partial: warnings.length > 0,
+        warnings
       }
     });
   } catch (error) {
@@ -80,12 +138,16 @@ app.use((error, req, res, next) => {
   next(error);
 });
 
-const port = Number(process.env.PORT || 3000);
-const host = process.env.HOST || "0.0.0.0";
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const port = Number(process.env.PORT || 3000);
+  const host = process.env.HOST || "0.0.0.0";
 
-app.listen(port, host, () => {
-  console.info({ message: "Server listening", host, port });
-});
+  app.listen(port, host, () => {
+    console.info({ message: "Server listening", host, port });
+  });
+}
+
+export { app };
 
 function invalidUrl() {
   return new AppError(
@@ -93,6 +155,62 @@ function invalidUrl() {
     "A valid LinkedIn profile URL is required.",
     400
   );
+}
+
+function emptyBasicProfile() {
+  return {
+    name: null,
+    headline: null,
+    location: null,
+    pronouns: null,
+    profileImage: null,
+    backgroundImage: null
+  };
+}
+
+function unsupportedSection(value, warning) {
+  return {
+    value,
+    linkedinStatus: null,
+    durationMs: 0,
+    warnings: [warning]
+  };
+}
+
+function sectionFromBasicProfile(value, sourceSection) {
+  return {
+    value,
+    linkedinStatus: sourceSection.linkedinStatus,
+    durationMs: 0,
+    warnings: []
+  };
+}
+
+async function safeSection(req, section, load, fallback) {
+  try {
+    const result = await load();
+
+    return {
+      value: Object.hasOwn(result, "entries") ? result.entries : result.value,
+      linkedinStatus: result.linkedinStatus,
+      durationMs: result.durationMs || 0,
+      warnings: []
+    };
+  } catch (error) {
+    console.warn("[linkedin-section-failed]", {
+      requestId: req.id,
+      section,
+      code: error.code,
+      linkedinStatus: error.linkedinStatus
+    });
+
+    return {
+      value: fallback,
+      linkedinStatus: error.linkedinStatus,
+      durationMs: 0,
+      warnings: [`${section} section unavailable`]
+    };
+  }
 }
 
 function toAppError(error) {

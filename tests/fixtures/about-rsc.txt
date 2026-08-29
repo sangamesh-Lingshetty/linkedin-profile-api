@@ -1,0 +1,8 @@
+1:I["component",[],"default"]
+2:{"screenId":"com.linkedin.sdui.flagshipnav.profile.ProfileAboutForm","modelStates":[{"key":{"key":{"value":{"$case":"id","id":"aboutTextProfileAboutForm"}}},"value":{"$case":"stringValue","stringValue":"$5"}},{"key":{"key":{"value":{"$case":"id","id":"initialAboutTextProfileAboutForm"}}},"value":{"$case":"stringValue","stringValue":"$6"}}]}
+3:{"children":["JavaScript"]}
+4:{"children":["React.js"]}
+5:T172,I'm a Backend / Full Stack Engineer focused on APIs and automation.
+
+I build reliable Node.js services, integrations, and internal tools.
+6:T172,Initial text should not be preferred when aboutText is present.

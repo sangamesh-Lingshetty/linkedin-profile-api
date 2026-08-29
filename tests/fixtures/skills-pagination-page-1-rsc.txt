@@ -1,0 +1,11 @@
+1:"$Sreact.fragment"
+2:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 565475854)","children":["$L19"]}
+3:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 1760560923)","children":["$L1d"]}
+4:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 4)","children":["$L20"]}
+5:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 9900102030)","children":["$L23"]}
+6:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 777777777)","children":["$Lxxx"]}
+7:{"paginationRequest":{"pagerId":"com.linkedin.sdui.pagers.profile.details.skills","requestedArguments":{"payload":{"vanityName":"example","profileId":"ACoAAASkillsExample123","start":10,"count":10,"filter":"ProfileSkillCategory_ALL"}}}}
+19:["$","$L2c",null,{"textProps":{"children":["Generative AI"]}}]
+1d:["$","$L2c",null,{"textProps":{"children":["Node.js"]}}]
+20:["$","$L2c",null,{"textProps":{"children":["Amazon Web Services (AWS)"]}}]
+23:["$","$L2c",null,{"textProps":{"children":["Continuous Integration and Continuous Delivery (CI/CD)"]}}]

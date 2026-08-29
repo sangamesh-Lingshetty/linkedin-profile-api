@@ -1,0 +1,11 @@
+1:"$Sreact.fragment"
+2:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 3300456001)","children":["$L19"]}
+3:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 4400456002)","children":["$L24"]}
+4:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 5500456003)","children":["$L26"]}
+5:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 6600456004)","children":["$L27"]}
+6:{"component":"com.linkedin.sdui.profile.skill(ACoAAASkillsExample123, 1760560923)","children":["$L2a"]}
+19:["$","$L2c",null,{"textProps":{"children":["Systems Design"]}}]
+24:["$","$L2c",null,{"textProps":{"children":["Microservices Architecture"]}}]
+26:["$","$L2c",null,{"textProps":{"children":["MongoDB"]}}]
+27:["$","$L2c",null,{"textProps":{"children":["PostgreSQL"]}}]
+2a:["$","$L2c",null,{"textProps":{"children":["Software Development"]}}]

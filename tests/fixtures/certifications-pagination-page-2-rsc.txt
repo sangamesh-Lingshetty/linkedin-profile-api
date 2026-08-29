@@ -1,0 +1,9 @@
+1:"$Sreact.fragment"
+2:{"viewName":"license-certifications-lockup-view","children":["Backend APIs"]}
+3:{"children":["API Guild"]}
+4:{"children":["Issued Mar 2023"]}
+5:{"url":"/in/example/details/certifications/edit/forms/998877665/","requestedArguments":{"payload":{"certificationId":"998877665"}}}
+6:{"viewName":"license-certifications-lockup-view","children":["Duplicate Special Appreciation"]}
+7:{"children":["Aquera"]}
+8:{"children":["Issued Sep 2025"]}
+9:{"url":"/in/example/details/certifications/edit/forms/1456621303/","requestedArguments":{"payload":{"certificationId":"1456621303"}}}

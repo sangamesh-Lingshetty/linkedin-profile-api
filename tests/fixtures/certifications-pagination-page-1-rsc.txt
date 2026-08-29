@@ -1,0 +1,15 @@
+1:"$Sreact.fragment"
+2:{"children":["Licenses & certifications"]}
+3:{"viewName":"license-certifications-lockup-view","children":["Special Appreciation"]}
+4:{"url":"https://www.linkedin.com/company/18114533/","children":["Aquera"]}
+5:{"children":["Issued Sep 2025"]}
+6:{"aria-label":"Edit Special Appreciation license or certification","url":"/in/example/details/certifications/edit/forms/1456621303/","requestedArguments":{"payload":{"certificationId":"1456621303"}}}
+7:{"renderPayload":{"rootUrl":"https://media.licdn.com/dms/image/v2/D560BAQIssuer/company-logo_","imageRenditions":[{"width":100,"height":100,"suffixUrl":"100_100/company-logo_100_100/0/aquera_logo?e=1&t=small"},{"width":400,"height":400,"suffixUrl":"400_400/company-logo_400_400/0/aquera_logo?e=1&t=large"}]}}
+8:{"children":["20251012_103828.jpg"],"renderPayload":{"rootUrl":"https://media.licdn.com/dms/image/v2/D4DCertMedia/certification-media_","imageRenditions":[{"width":320,"height":180,"suffixUrl":"320_180/certification-media_320_180/0/certificate?e=1&t=small"},{"width":1280,"height":720,"suffixUrl":"1280_720/certification-media_1280_720/0/certificate?e=1&t=large"}]}}
+9:{"viewName":"license-certifications-lockup-view","children":["Cloud Basics"]}
+10:{"children":["Example Academy"]}
+11:{"children":["Issued Jan 2024 \u00b7 Expires Jan 2027"]}
+12:{"children":["Credential ID ABC-123"]}
+13:{"urlValue":{"url":"https://credentials.example.test/abc-123"}}
+14:{"url":"/in/example/details/certifications/edit/forms/222333444/","requestedArguments":{"payload":{"certificationId":"222333444"}}}
+15:{"paginationRequest":{"pagerId":"com.linkedin.sdui.pagers.profile.details.certifications","requestedArguments":{"payload":{"vanityName":"example","profileId":"ACoAAACertExample123","start":10,"count":10}}}}

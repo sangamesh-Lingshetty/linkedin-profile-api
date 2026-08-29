@@ -1,0 +1,10 @@
+1:"$Sreact.fragment"
+2:{"children":["Education"]}
+3:{"children":["advertisement"]}
+4:{"children":["Grade: Bachelor of Technology - Computer Science & Engineering"]}
+5:{"children":[[["$","$13","0",{"children":[null,"Activities and societies: Activities:"]}],["$","$13","1",{"children":[["$","br",null,{}],"→ Special Recognition Award (2025)"]}],["$","$13","2",{"children":[["$","br",null,{}],"→ Hackathon Winner (College-level)"]}],["$","$13","3",{"children":[["$","br",null,{}],"→ Problem Solving: 100+ LeetCode problems solved"]}]]]}
+6:{"children":["Dayananda Sagar University"]}
+7:{"children":["Bachelor of Engineering - BE, Computer Science"]}
+8:{"children":["Nov 2022 \u2013 Jun 2025"]}
+9:{"textProps":{"children":[[["$","$13","0",{"children":[null,"Relevant Coursework:"]}],["$","$13","1",{"children":[["$","br",null,{}],"Data Structures & Algorithms \u2022 Database Management Systems \u2022 Operating Systems \u2022 Computer Networks \u2022 Cloud Computing \u2022 Software Engineering"]}]]]}}
+10:{"renderPayload":{"rootUrl":"https://media.licdn.com/dms/image/v2/D560BAQErICFizHTwhw/company-logo_","imageRenditions":[{"width":100,"height":100,"suffixUrl":"100_100/company-logo_100_100/0/example_logo?e=1&v=beta&t=small"},{"width":400,"height":400,"suffixUrl":"400_400/company-logo_400_400/0/example_logo?e=1&v=beta&t=large"},{"width":200,"height":200,"suffixUrl":"200_200/company-logo_200_200/0/example_logo?e=1&v=beta&t=medium"}]}}

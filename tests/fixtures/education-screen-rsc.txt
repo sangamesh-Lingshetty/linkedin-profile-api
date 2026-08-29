@@ -1,0 +1,4 @@
+1:"$Sreact.fragment"
+2:{"profileId":"ACoAAAExample123"}
+3:{"detailSectionReplaceableComponentRef":"urn:li:fsd_profile:ACoAAAExample123,EducationDetailsSection"}
+4:{"pagerId":"com.linkedin.sdui.pagers.profile.details.education"}
