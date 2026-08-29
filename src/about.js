@@ -1,23 +1,19 @@
 import { AppError, linkedinRequest } from "./linkedin-client.js";
 import { parseAboutResponse } from "./rsc-parser.js";
 
-const SCREEN_ID = "com.linkedin.sdui.flagshipnav.profile.ProfileAboutForm";
+const COMPONENT_ID = "com.linkedin.sdui.generated.profile.dsl.impl.profileCardsAboveActivity";
+const SCREEN_ID = "com.linkedin.sdui.flagshipnav.profile.Profile";
 
 export async function getAbout(vanityName) {
-  const encodedScreenId = encodeURIComponent(SCREEN_ID);
-  const encodedVanity = encodeURIComponent(vanityName);
-  const referer = `https://www.linkedin.com/in/${encodedVanity}/edit/forms/summary/new/`;
-  const path =
-    `/flagship-web/rsc-action/actions/navigation` +
-    `?screenId=${encodedScreenId}` +
-    `&sduiid=${encodedScreenId}`;
-
   const response = await linkedinRequest({
-    path,
+    path:
+      `/flagship-web/rsc-action/actions/component` +
+      `?componentId=${encodeURIComponent(COMPONENT_ID)}` +
+      `&sduiid=${encodeURIComponent(COMPONENT_ID)}`,
     method: "POST",
-    referer,
+    referer: `https://www.linkedin.com/in/${encodeURIComponent(vanityName)}/`,
     headers: buildAboutHeaders(),
-    body: buildAboutNavigationBody(vanityName),
+    body: buildAboutComponentBody(vanityName)
   });
 
   assertRscResponse(response);
@@ -25,7 +21,32 @@ export async function getAbout(vanityName) {
   return {
     value: parseAboutResponse(response.text),
     linkedinStatus: response.status,
-    durationMs: response.durationMs,
+    durationMs: response.durationMs
+  };
+}
+
+export function buildAboutComponentBody(vanityName) {
+  return {
+    clientArguments: {
+      payload: {
+        isSelfView: false,
+        vanityName,
+        replaceableSectionArgs: {
+          vanityName,
+          hideCardsForGoldenGate: false,
+          shouldSetupReplaceableComponent: true,
+          isSelfView: false,
+          isSelfViewResolved: false
+        },
+        profileComponentState: buildProfileComponentState(vanityName)
+      },
+      states: [],
+      requestMetadata: {
+        $type: "proto.sdui.common.RequestMetadata"
+      },
+      screenId: SCREEN_ID,
+      knownTemplateIds: []
+    }
   };
 }
 
@@ -37,33 +58,31 @@ function buildAboutHeaders() {
     "x-li-track": undefined,
     "x-restli-protocol-version": undefined,
     "x-li-rsc-stream": "true",
-    "x-li-anchor-page-key": "d_flagship3_profile_view_base",
-    "x-li-application-version": "0.2.7003",
-    "x-li-layout-tree": JSON.stringify([
-      "com.linkedin.sdui.flagshipnav.profile.Profile#696664d3",
-      "com.linkedin.sdui.flagshipnav.home.Home#0",
-      "a15eca777c146d37da0475b8f19e5d56"
-    ])
+    "x-li-anchor-page-key": "d_flagship3_profile_view_base"
   };
 }
 
-function buildAboutNavigationBody(vanityName) {
+function buildProfileComponentState(vanityName) {
+  const binding = (name) => ({
+    type: "com.linkedin.sdui.components.core.BindingImpl",
+    value: {
+      key: `ProfileComponentState${name}${vanityName}ProfileComponentState`,
+      namespace: "MemoryNamespace"
+    }
+  });
+
   return {
-    clientArguments: {
-      $type: "proto.sdui.actions.requests.RequestedArguments",
-      requestedStateKeys: [],
-      payload: {
-        vanityName,
-        isVanityNameResolved: true,
-      },
-      states: [],
-      requestMetadata: {
-        $type: "proto.sdui.common.RequestMetadata",
-      },
-      screenId: SCREEN_ID,
-      knownTemplateIds: [],
-    },
-    isModal: true,
+    profileId: vanityName,
+    shouldRefreshScreenOnReappear: binding("ShouldRefreshScreen"),
+    shouldFetchFromCache: binding("FetchFromCache"),
+    shouldDisplayTabAnchors: binding("ShouldDisplayTabAnchors"),
+    shouldReloadTopCardOnReappear: binding("ShouldReloadTopCardOnReappear"),
+    deferredTopCardReloadProfileId: binding("DeferredTopCardReloadProfileId"),
+    shouldDisplayStickyHeader: binding("ShouldDisplayStickyHeader"),
+    shouldRefreshLanguageDetailScreen: binding("ShouldRefreshLanguageDetails"),
+    lastPerformedActionRef: binding("LastPerformedActionRef"),
+    shouldFocusOnReappear: binding("ShouldFocusOnReappear"),
+    shouldFocusFeaturedOnReappear: binding("ShouldFocusFeaturedOnReappear")
   };
 }
 
@@ -73,7 +92,7 @@ function assertRscResponse(response) {
       "LINKEDIN_REQUEST_FAILED",
       "LinkedIn returned HTML instead of the RSC/SDUI stream.",
       502,
-      response.status,
+      response.status
     );
   }
 }

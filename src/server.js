@@ -2,6 +2,7 @@ import "dotenv/config";
 import crypto from "node:crypto";
 import { pathToFileURL } from "node:url";
 import express from "express";
+import { getAbout } from "./about.js";
 import { getBasicProfile } from "./basic-profile.js";
 import { getCertifications } from "./certifications.js";
 import { getEducation } from "./education.js";
@@ -33,17 +34,15 @@ app.post("/api/profile", async (req, res) => {
     }
 
     vanityName = extractVanityName(req.body.profileUrl);
-    const [basicProfileSection, experienceSection, educationSection, skillsSection, certificationsSection] = await Promise.all([
+    const [basicProfileSection, aboutSection, experienceSection, educationSection, skillsSection, certificationsSection] = await Promise.all([
       safeSection(req, "profile", () => getBasicProfile(vanityName), emptyBasicProfile()),
+      safeSection(req, "about", () => getAbout(vanityName), null),
       safeSection(req, "experience", () => getExperience(vanityName), []),
       safeSection(req, "education", () => getEducation(vanityName), []),
       safeSection(req, "skills", () => getSkills(vanityName), []),
       safeSection(req, "certifications", () => getCertifications(vanityName), [])
     ]);
     const basicProfile = basicProfileSection.value;
-    const aboutSection = basicProfile.about
-      ? sectionFromBasicProfile(basicProfile.about, basicProfileSection)
-      : unsupportedSection(null, "about section unavailable");
     const languages = [];
     const warnings = [
       ...basicProfileSection.warnings,
@@ -165,24 +164,6 @@ function emptyBasicProfile() {
     pronouns: null,
     profileImage: null,
     backgroundImage: null
-  };
-}
-
-function unsupportedSection(value, warning) {
-  return {
-    value,
-    linkedinStatus: null,
-    durationMs: 0,
-    warnings: [warning]
-  };
-}
-
-function sectionFromBasicProfile(value, sourceSection) {
-  return {
-    value,
-    linkedinStatus: sourceSection.linkedinStatus,
-    durationMs: 0,
-    warnings: []
   };
 }
 

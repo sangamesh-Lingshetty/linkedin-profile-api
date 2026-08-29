@@ -1,15 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
-import { getAbout } from "../src/about.js";
+import { buildAboutComponentBody, getAbout } from "../src/about.js";
 import { parseAboutResponse } from "../src/rsc-parser.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ABOUT_SCREEN_ID = "com.linkedin.sdui.flagshipnav.profile.ProfileAboutForm";
+const COMPONENT_ID = "com.linkedin.sdui.generated.profile.dsl.impl.profileCardsAboveActivity";
 
-test("getAbout uses the RSC navigation action request", async (t) => {
+test("getAbout uses the read-only profile component request", async (t) => {
   const originalFetch = global.fetch;
   const originalCookie = process.env.LINKEDIN_COOKIE;
   const originalCsrf = process.env.LINKEDIN_CSRF_TOKEN;
@@ -23,7 +19,7 @@ test("getAbout uses the RSC navigation action request", async (t) => {
     capturedUrl = new URL(String(url));
     capturedOptions = options;
 
-    return new Response(readFixture("about-rsc.txt"), {
+    return new Response(componentAboutFixture("example", "Example About text."), {
       status: 200,
       headers: {
         "content-type": "text/x-component"
@@ -40,92 +36,100 @@ test("getAbout uses the RSC navigation action request", async (t) => {
   const result = await getAbout("example");
   const body = JSON.parse(capturedOptions.body);
 
-  assert.equal(result.value.includes("Backend / Full Stack Engineer"), true);
-  assert.equal(capturedUrl.pathname, "/flagship-web/rsc-action/actions/navigation");
-  assert.equal(capturedUrl.searchParams.get("screenId"), ABOUT_SCREEN_ID);
-  assert.equal(capturedUrl.searchParams.get("sduiid"), ABOUT_SCREEN_ID);
-  assert.equal(String(capturedUrl).includes("/edit/forms/about/"), false);
+  assert.equal(result.value, "Example About text.");
+  assert.equal(capturedUrl.pathname, "/flagship-web/rsc-action/actions/component");
+  assert.equal(capturedUrl.searchParams.get("componentId"), COMPONENT_ID);
+  assert.equal(capturedUrl.searchParams.get("sduiid"), COMPONENT_ID);
+  assert.equal(capturedUrl.searchParams.has("parentSpanId"), false);
   assert.equal(capturedOptions.method, "POST");
   assert.equal(capturedOptions.headers.accept, "*/*");
   assert.equal(capturedOptions.headers["content-type"], "application/json");
-  assert.equal(capturedOptions.headers.origin, undefined);
-  assert.equal(capturedOptions.headers["accept-language"], undefined);
-  assert.equal(capturedOptions.headers["x-li-lang"], undefined);
-  assert.equal(capturedOptions.headers["x-li-track"], undefined);
-  assert.equal(capturedOptions.headers["x-restli-protocol-version"], undefined);
   assert.equal(capturedOptions.headers["x-li-rsc-stream"], "true");
   assert.equal(capturedOptions.headers["x-li-anchor-page-key"], "d_flagship3_profile_view_base");
-  assert.equal(capturedOptions.headers["x-li-initial-url"], undefined);
-  assert.equal(capturedOptions.headers["x-li-application-version"], "0.2.7003");
-  assert.deepEqual(JSON.parse(capturedOptions.headers["x-li-layout-tree"]), [
-    "com.linkedin.sdui.flagshipnav.profile.Profile#696664d3",
-    "com.linkedin.sdui.flagshipnav.home.Home#0",
-    "a15eca777c146d37da0475b8f19e5d56"
-  ]);
-  assert.equal(capturedOptions.headers["x-li-application-instance"], undefined);
-  assert.equal(capturedOptions.headers["x-li-page-instance-tracking-id"], undefined);
+  assert.equal(capturedOptions.headers.referer, "https://www.linkedin.com/in/example/");
+  assert.equal(capturedOptions.headers.origin, undefined);
+  assert.equal(capturedOptions.headers["x-li-track"], undefined);
   assert.equal(capturedOptions.headers["x-li-page-instance"], undefined);
+  assert.equal(capturedOptions.headers["x-li-page-instance-tracking-id"], undefined);
   assert.equal(capturedOptions.headers["x-li-pageforestid"], undefined);
   assert.equal(capturedOptions.headers["x-li-traceparent"], undefined);
   assert.equal(capturedOptions.headers["x-li-tracestate"], undefined);
-  assert.equal(capturedOptions.headers.referer, "https://www.linkedin.com/in/example/edit/forms/summary/new/");
-  assert.equal(body.isModal, true);
-  assert.equal(body.clientArguments.$type, "proto.sdui.actions.requests.RequestedArguments");
-  assert.deepEqual(body.clientArguments.requestedStateKeys, []);
+  assert.equal(capturedOptions.headers["x-li-application-instance"], undefined);
+  assert.equal(capturedOptions.headers["x-li-application-version"], undefined);
   assert.equal(body.clientArguments.payload.vanityName, "example");
-  assert.equal(body.clientArguments.payload.isVanityNameResolved, true);
-  assert.equal(body.clientArguments.payload.profileFormEntryPoint, undefined);
-  assert.equal(body.clientArguments.screenId, ABOUT_SCREEN_ID);
+  assert.equal(body.clientArguments.payload.replaceableSectionArgs.vieweeProfileId, undefined);
+  assert.equal(body.clientArguments.payload.profileComponentState.profileId, "example");
+  assert.equal(body.clientArguments.screenId, "com.linkedin.sdui.flagshipnav.profile.Profile");
+  assert.deepEqual(body.clientArguments.states, []);
   assert.deepEqual(body.clientArguments.knownTemplateIds, []);
-  assert.equal(body.$type, undefined);
-  assert.equal(body.requestedArguments, undefined);
 });
 
-test("finds ProfileAboutForm and resolves About RSC reference", () => {
-  const raw = readFixture("about-rsc.txt");
+test("buildAboutComponentBody generates vanity-scoped profile state bindings", () => {
+  const body = buildAboutComponentBody("example-person");
+  const state = body.clientArguments.payload.profileComponentState;
+
+  assert.equal(state.shouldFetchFromCache.value.key, "ProfileComponentStateFetchFromCacheexample-personProfileComponentState");
+  assert.equal(state.shouldFocusOnReappear.value.namespace, "MemoryNamespace");
+});
+
+test("parses the About card and preserves line breaks", () => {
+  const about = parseAboutResponse(componentAboutFixture(
+    "abhishek-dhumansur6366",
+    [
+      "Mechanical Design Engineer with 4+ years of experience.",
+      "Core Skills:",
+      "Siemens NX",
+      "Mechanical Design"
+    ]
+  ));
 
   assert.equal(
-    parseAboutResponse(raw),
-    "I'm a Backend / Full Stack Engineer focused on APIs and automation.\n\nI build reliable Node.js services, integrations, and internal tools."
+    about,
+    "Mechanical Design Engineer with 4+ years of experience.\nCore Skills:\nSiemens NX\nMechanical Design"
   );
 });
 
-test("preserves multiline About text", () => {
-  const about = parseAboutResponse(readFixture("about-rsc.txt"));
-
-  assert.match(about, /automation\.\n\nI build reliable/);
-});
-
-test("does not return raw RSC references", () => {
-  const about = parseAboutResponse(readFixture("about-rsc.txt"));
-
-  assert.equal(/^\$L?[a-zA-Z0-9]+$/.test(about), false);
-});
-
-test("missing About returns null", () => {
-  const raw = '1:{"screenId":"com.linkedin.sdui.flagshipnav.profile.ProfileAboutForm"}';
-
-  assert.equal(parseAboutResponse(raw), null);
-});
-
-test("malformed non-About RSC does not produce unrelated text", () => {
-  const raw = "1:T30,This text is not an About form";
-
-  assert.equal(parseAboutResponse(raw), null);
-});
-
-test("supports non-numeric About RSC refs", () => {
+test("keeps About parser target-specific within the About card", () => {
   const raw = [
-    '1:{"screenId":"com.linkedin.sdui.flagshipnav.profile.ProfileAboutForm"}',
-    '2:{"id":"aboutSomethingProfileAboutForm","value":{"stringValue":"$Lc"}}',
-    "c:T23,Letter-key About text"
+    componentAboutFixture("sangamesh-lingshetty-5a6647279", "I'm a Backend / Full Stack Engineer."),
+    componentAboutFixture("abhishek-dhumansur6366", "Mechanical Design Engineer with 4+ years of experience.")
   ].join("\n");
 
-  assert.equal(parseAboutResponse(raw), "Letter-key About text");
+  assert.match(parseAboutResponse(raw), /Backend \/ Full Stack Engineer/);
 });
 
-function readFixture(fileName) {
-  return readFileSync(join(__dirname, "fixtures", fileName), "utf8");
+test("missing About card returns null", () => {
+  const raw = '1:["$","$L3",null,{"observabilityIdentifier":"com.linkedin.sdui.impl.profile.components.activitySection","children":["$L4"]}]';
+
+  assert.equal(parseAboutResponse(raw), null);
+});
+
+test("does not return unresolved refs as About text", () => {
+  const raw = componentAboutFixture("example", "$L99");
+
+  assert.equal(parseAboutResponse(raw), null);
+});
+
+function componentAboutFixture(vanityName, lines) {
+  const aboutLines = Array.isArray(lines) ? lines : [lines];
+  const recordPrefix = `r${vanityName.replace(/[^a-z0-9]/gi, "").slice(0, 8)}`;
+  const ref = (id) => `${recordPrefix}${id}`;
+  const children = aboutLines.map((line, index) =>
+    index === 0
+      ? `["$","$12","${index}",{"children":[null,"${escapeJson(line)}"]}]`
+      : `["$","$12","${index}",{"children":[["$","br",null,{}],"${escapeJson(line)}"]}]`
+  );
+
+  return [
+    `${ref("0")}:["$","$L${ref("3")}",null,{"observabilityIdentifier":"com.linkedin.sdui.impl.profile.components.aboutSection","children":["$","$L${ref("4")}",null,{"componentKey":"com.linkedin.sdui.profile.card.ref${vanityName}About","children":["$","$L${ref("5")}","com.linkedin.sdui.profile.card.ref${vanityName}About",{"initialContent":"$L${ref("7")}"}]}]}]`,
+    `${ref("7")}:["$","$L${ref("4")}",null,{"componentKey":"com.linkedin.sdui.profile.card.ref${vanityName}About","viewTrackingSpecs":{"viewName":"profile-card-about"},"children":["$","section",null,{"componentkey":"com.linkedin.sdui.profile.card.ref${vanityName}About","children":["$L${ref("9")}","$L${ref("a")}"]}]}]`,
+    `${ref("9")}:["$","$Lf",null,{"textProps":{"fontSize":"xlarge","tagName":"h2","children":["About"]}}]`,
+    `${ref("a")}:["$","$L11",null,{"textProps":{"fontFamily":"sans","fontSize":"small","fontStyle":"normal","fontWeight":"normal","lineHeight":"default","textAlign":"start","children":[[${children.join(",")}]],"linkHoverDecoration":"underline"}}]`
+  ].join("\n");
+}
+
+function escapeJson(value) {
+  return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 function restoreEnv(name, value) {

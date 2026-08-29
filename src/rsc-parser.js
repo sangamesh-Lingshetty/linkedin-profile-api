@@ -238,22 +238,7 @@ export function parseCertifications(raw) {
 
 export function parseAboutResponse(raw) {
   try {
-    if (!raw.includes("com.linkedin.sdui.flagshipnav.profile.ProfileAboutForm")) {
-      return null;
-    }
-
-    const textRecords = extractRscTextRecords(raw);
-    const refs = extractAboutRefs(raw);
-
-    for (const ref of refs) {
-      const text = textRecords[ref];
-
-      if (text && !isAnyRscRef(text)) {
-        return normalizeAboutText(text);
-      }
-    }
-
-    return null;
+    return parseProfileCardAbout(raw);
   } catch {
     throw new AppError("EXTRACTION_FAILED", "LinkedIn about extraction failed.", 502);
   }
@@ -815,37 +800,219 @@ function extractStringValue(raw, key) {
   return null;
 }
 
-function extractRscTextRecords(raw) {
+function parseProfileCardAbout(raw) {
+  if (
+    !raw.includes("com.linkedin.sdui.impl.profile.components.aboutSection") &&
+    !raw.includes("profile-card-about")
+  ) {
+    return null;
+  }
+
+  const records = extractRscRecords(raw);
+  const decoded = decodeTextRecord(raw);
+  const marker = '"observabilityIdentifier":"com.linkedin.sdui.impl.profile.components.aboutSection"';
+  const aboutIndex = decoded.indexOf(marker);
+
+  if (aboutIndex === -1) {
+    return null;
+  }
+
+  const section = decoded.slice(aboutIndex, findAboutSectionEnd(decoded, aboutIndex + marker.length));
+  if (!section.includes("profile-card-about") && !section.includes("About")) {
+    return null;
+  }
+
+  const candidates = [];
+  const queue = extractRscRefs(section);
+  const visited = new Set();
+
+  while (queue.length > 0) {
+    const ref = queue.shift();
+
+    if (visited.has(ref)) {
+      continue;
+    }
+
+    visited.add(ref);
+
+    const record = records[ref];
+    if (!record) {
+      continue;
+    }
+
+    candidates.push(...extractAboutTextProps(record));
+    queue.push(...extractRscRefs(record).filter((nextRef) => !visited.has(nextRef)));
+  }
+
+  return candidates.sort((a, b) => b.length - a.length)[0] || null;
+}
+
+function extractRscRecords(raw) {
   const records = {};
-  const regex = /(?:^|\n)([A-Za-z0-9]+):T\d+,([\s\S]*?)(?=\n[A-Za-z0-9]+:|$)/g;
+  const regex = /(?:^|\n)([A-Za-z0-9]+):([\s\S]*?)(?=\n[A-Za-z0-9]+:|$)/g;
   let match;
 
   while ((match = regex.exec(raw))) {
-    const key = match[1];
-    const value = normalizeAboutText(decodeTextRecord(match[2]));
-
-    if (value) {
-      records[key] = value;
-    }
+    records[match[1]] = decodeTextRecord(match[2]);
   }
 
   return records;
 }
 
-function extractAboutRefs(raw) {
+function findAboutSectionEnd(value, start) {
+  const nextSection = value.indexOf('"observabilityIdentifier":"com.linkedin.sdui.impl.profile.components.', start);
+
+  return nextSection === -1 ? value.length : nextSection;
+}
+
+function extractRscRefs(value) {
   const refs = [];
-  const aboutContexts = raw.match(/.{0,250}(?:about|initialAbout)[^"'\\]*AboutForm.{0,500}/gi) || [];
+  const regex = /"\$L?([A-Za-z0-9]+)"/g;
+  let match;
 
-  for (const context of aboutContexts) {
-    const regex = /"\$(L?[A-Za-z0-9]+)"/g;
-    let match;
-
-    while ((match = regex.exec(context))) {
-      refs.push(match[1].replace(/^L/, ""));
-    }
+  while ((match = regex.exec(value))) {
+    refs.push(match[1]);
   }
 
   return [...new Set(refs)];
+}
+
+function extractAboutTextProps(record) {
+  const texts = [];
+  let start = 0;
+
+  while (true) {
+    const textPropsIndex = record.indexOf('"textProps"', start);
+    if (textPropsIndex === -1) {
+      break;
+    }
+
+    const objectStart = record.indexOf("{", textPropsIndex);
+    if (objectStart === -1) {
+      break;
+    }
+
+    const textProps = sliceBalanced(record, objectStart, "{", "}");
+    start = objectStart + textProps.length;
+
+    if (!textProps || textProps.includes('"tagName":"h2"')) {
+      continue;
+    }
+
+    const children = extractPropertyValue(textProps, "children");
+    const lines = extractQuotedStrings(children).filter(isAboutContentString);
+    const text = normalizeAboutText(lines.join("\n"));
+
+    if (text && text !== "About") {
+      texts.push(text);
+    }
+  }
+
+  return texts;
+}
+
+function extractPropertyValue(value, propertyName) {
+  const propertyIndex = value.indexOf(`"${propertyName}"`);
+  if (propertyIndex === -1) {
+    return "";
+  }
+
+  const colonIndex = value.indexOf(":", propertyIndex);
+  const valueStart = firstNonWhitespaceIndex(value, colonIndex + 1);
+  const startChar = value[valueStart];
+
+  if (startChar === "[") {
+    return sliceBalanced(value, valueStart, "[", "]");
+  }
+
+  if (startChar === "{") {
+    return sliceBalanced(value, valueStart, "{", "}");
+  }
+
+  if (startChar === "\"") {
+    const match = /^"((?:\\.|[^"\\])*)"/.exec(value.slice(valueStart));
+    return match ? match[0] : "";
+  }
+
+  return "";
+}
+
+function sliceBalanced(value, start, open, close) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < value.length; i++) {
+    const char = value[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === open) {
+      depth++;
+    } else if (char === close) {
+      depth--;
+      if (depth === 0) {
+        return value.slice(start, i + 1);
+      }
+    }
+  }
+
+  return "";
+}
+
+function firstNonWhitespaceIndex(value, start) {
+  for (let i = start; i < value.length; i++) {
+    if (!/\s/.test(value[i])) {
+      return i;
+    }
+  }
+
+  return value.length;
+}
+
+function extractQuotedStrings(value) {
+  const strings = [];
+  const regex = /"((?:\\.|[^"\\])*)"/g;
+  let match;
+
+  while ((match = regex.exec(value))) {
+    const text = normalizeAboutText(decode(match[1]));
+
+    if (text) {
+      strings.push(text);
+    }
+  }
+
+  return strings;
+}
+
+function isAboutContentString(value) {
+  return (
+    value !== "$" &&
+    !value.startsWith("$") &&
+    !/^\d+$/.test(value) &&
+    !/^text-attr-\d+$/i.test(value) &&
+    !/^(?:br|span|strong|div|p|section)$/i.test(value) &&
+    !/^(?:children|textProps|fontFamily|fontSize|fontStyle|fontWeight|lineHeight|textAlign|linkHoverDecoration)$/i.test(value) &&
+    value !== "About"
+  );
 }
 
 function decodeTextRecord(value) {

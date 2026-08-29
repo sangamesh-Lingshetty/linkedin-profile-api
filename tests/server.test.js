@@ -46,6 +46,10 @@ test("About 404 does not fail the whole profile response", async (t) => {
       });
     }
 
+    if (requestUrl.includes("/rsc-action/actions/component") && requestUrl.includes("profileCardsAboveActivity")) {
+      return new Response("Not found", { status: 404 });
+    }
+
     if (requestUrl.includes("/details/experience/")) {
       return rscResponse(readFixture("experience-rsc.txt"));
     }
@@ -106,7 +110,7 @@ test("About 404 does not fail the whole profile response", async (t) => {
   assert.deepEqual(response.body.meta.warnings, ["about section unavailable"]);
 });
 
-test("profile response includes About from the direct profile page", async (t) => {
+test("profile response includes About from the read-only profile component", async (t) => {
   const originalFetch = global.fetch;
   const originalCookie = process.env.LINKEDIN_COOKIE;
   const originalCsrf = process.env.LINKEDIN_CSRF_TOKEN;
@@ -131,12 +135,7 @@ test("profile response includes About from the direct profile page", async (t) =
               <p>Example Headline</p>
               <p>Example City</p>
               <p><a href="https://www.linkedin.com/in/example/overlay/contact-info/">Contact info</a></p>
-              <section componentkey="example_about">
-                <h2>About</h2>
-                <p>Backend / Full Stack Engineer building reliable APIs.</p>
-              </section>
             </main>
-            <script>com.linkedin.sdui.flagshipnav.profile.ProfileEditIntroForm</script>
           </body>
         </html>
       `, {
@@ -145,6 +144,10 @@ test("profile response includes About from the direct profile page", async (t) =
           "content-type": "text/html"
         }
       });
+    }
+
+    if (requestUrl.includes("/rsc-action/actions/component") && requestUrl.includes("profileCardsAboveActivity")) {
+      return rscResponse(componentAboutFixture("Backend / Full Stack Engineer building reliable APIs."));
     }
 
     if (requestUrl.includes("/details/experience/")) {
@@ -203,6 +206,19 @@ function rscResponse(body) {
       "content-type": "text/x-component"
     }
   });
+}
+
+function componentAboutFixture(text) {
+  return [
+    '0:["$","$L3",null,{"observabilityIdentifier":"com.linkedin.sdui.impl.profile.components.aboutSection","children":["$","$L4",null,{"componentKey":"com.linkedin.sdui.profile.card.refexampleAbout","children":["$","$L5","com.linkedin.sdui.profile.card.refexampleAbout",{"initialContent":"$L7"}]}]}]',
+    '7:["$","$L4",null,{"componentKey":"com.linkedin.sdui.profile.card.refexampleAbout","viewTrackingSpecs":{"viewName":"profile-card-about"},"children":["$","section",null,{"componentkey":"com.linkedin.sdui.profile.card.refexampleAbout","children":["$L9","$La"]}]}]',
+    '9:["$","$Lf",null,{"textProps":{"fontSize":"xlarge","tagName":"h2","children":["About"]}}]',
+    `a:["$","$L11",null,{"textProps":{"fontSize":"small","children":["${escapeJson(text)}"]}}]`
+  ].join("\n");
+}
+
+function escapeJson(value) {
+  return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 function postJson(server, path, body) {
