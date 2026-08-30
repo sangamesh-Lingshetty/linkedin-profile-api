@@ -181,6 +181,10 @@ async function safeSection(req, section, load, fallback) {
       warnings: []
     };
   } catch (error) {
+    if (isAuthError(error)) {
+      throw error;
+    }
+
     console.warn("[linkedin-section-failed]", {
       requestId: req.id,
       section,
@@ -195,6 +199,11 @@ async function safeSection(req, section, load, fallback) {
       warnings: [`${section} section unavailable`]
     };
   }
+}
+
+function isAuthError(error) {
+  return error instanceof AppError &&
+    (error.code === "LINKEDIN_AUTH_FAILED" || error.code === "LINKEDIN_FORBIDDEN");
 }
 
 function toAppError(error) {

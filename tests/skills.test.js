@@ -68,6 +68,20 @@ test("does not return unresolved RSC refs as skill names", () => {
   assert.equal(skills.some((skill) => skill.id === "777777777"), false);
 });
 
+test("allows valid one-letter skill names", () => {
+  const raw = [
+    '1:{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 21)","children":["$L2"]}',
+    '2:{"children":["R"]}'
+  ].join("\n");
+
+  assert.deepEqual(parseSkills(raw), [
+    {
+      id: "21",
+      name: "R"
+    }
+  ]);
+});
+
 test("RSC references are scoped independently per page", () => {
   const page1 = parseSkills(readFixture("skills-pagination-page-1-rsc.txt"));
   const page2 = parseSkills(readFixture("skills-pagination-page-2-rsc.txt"));

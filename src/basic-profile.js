@@ -182,16 +182,16 @@ function extractLargestImage(raw, marker) {
   const srcsets = extractImageSrcSets(raw, marker);
   const candidates = srcsets.flatMap(parseSrcSet);
   const largest = candidates
-    .filter((candidate) => candidate.url.includes(marker))
+    .filter((candidate) => isUsableImageUrl(candidate.url, marker))
     .sort((a, b) => b.width - a.width)[0];
 
   if (largest) {
     return largest.url;
   }
 
-  const urls = [...raw.matchAll(/https?:\/\/[^"'\s<>]+/g)]
-    .map((match) => decodeHtml(match[0]))
-    .filter((url) => url.includes(marker));
+  const urls = [...raw.matchAll(/https?:\/\/[^"'\\\s<>]+/g)]
+    .map((match) => normalizeImageUrl(match[0]))
+    .filter((url) => isUsableImageUrl(url, marker));
 
   return urls.sort((a, b) => imageWidthFromUrl(b) - imageWidthFromUrl(a))[0] || null;
 }
@@ -213,19 +213,65 @@ function extractImageSrcSets(raw, marker) {
 }
 
 function parseSrcSet(srcset) {
-  return srcset
-    .split(/\s*,\s*/)
-    .map((candidate) => {
-      const match = /^(https?:\/\/\S+)\s+(\d+)w$/.exec(candidate.trim());
+  const candidates = [];
+  const regex = /(https?:\/\/[^\s,]+)\s+(\d+)w/g;
+  let match;
 
-      return match
-        ? {
-            url: decodeHtml(match[1]),
-            width: Number(match[2])
-          }
-        : null;
-    })
-    .filter(Boolean);
+  while ((match = regex.exec(srcset))) {
+    const url = normalizeImageUrl(match[1]);
+
+    if (url) {
+      candidates.push({
+        url,
+        width: Number(match[2])
+      });
+    }
+  }
+
+  return candidates;
+}
+
+function normalizeImageUrl(value) {
+  return decodeHtml(value || "")
+    .replace(/\\+$/g, "")
+    .replace(/,+$/g, "")
+    .trim() || null;
+}
+
+function isUsableImageUrl(url, marker) {
+  if (!url || /[\\"]$/.test(url)) {
+    return false;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  return (
+    parsed.protocol === "https:" &&
+    parsed.hostname === "media.licdn.com" &&
+    parsed.pathname.includes(marker) &&
+    !isIncompleteLinkedInImagePath(parsed.pathname, marker)
+  );
+}
+
+function isIncompleteLinkedInImagePath(pathname, marker) {
+  const markerIndex = pathname.indexOf(marker);
+  if (markerIndex === -1) {
+    return true;
+  }
+
+  const tail = pathname.slice(markerIndex + marker.length);
+
+  return (
+    tail === "" ||
+    tail === "-" ||
+    /^-(?:shrink|crop|scale)_?$/i.test(tail) ||
+    /^-(?:shrink|crop|scale)_\d*_?\d*\/?$/i.test(tail)
+  );
 }
 
 function imageWidthFromUrl(url) {

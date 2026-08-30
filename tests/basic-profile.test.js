@@ -71,6 +71,30 @@ test("parses profile when pronouns are absent", () => {
   });
 });
 
+test("returns null for incomplete LinkedIn image marker URLs", () => {
+  const html = `
+    <html>
+      <head>
+        <link rel="preload" as="image" imageSrcSet="https://media.licdn.com/dms/image/profile-displayphoto- 400w"/>
+        <link rel="preload" as="image" imageSrcSet="https://media.licdn.com/dms/image/profile-displaybackgroundimage-crop_ 1400w"/>
+      </head>
+      <body>
+        <main>
+          <h2>Example Person</h2>
+          <p>Example Headline</p>
+          <p>Example City</p>
+          <p><a href="https://www.linkedin.com/in/example-person/overlay/contact-info/">Contact info</a></p>
+        </main>
+      </body>
+    </html>
+  `;
+
+  const result = parseBasicProfilePage(html, "example-person");
+
+  assert.equal(result.profileImage, null);
+  assert.equal(result.backgroundImage, null);
+});
+
 test("parses requested profile About from a rendered profile section", () => {
   const html = `
     <html>

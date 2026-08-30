@@ -58,18 +58,38 @@ export async function linkedinRequest({
       method,
       signal: controller.signal,
       headers: requestHeaders,
-      body: body === undefined ? undefined : JSON.stringify(body)
+      body: body === undefined ? undefined : JSON.stringify(body),
+      redirect: "manual"
     });
 
     const text = await response.text();
     const durationMs = Date.now() - startedAt;
     const contentType = response.headers.get("content-type");
+    const location = response.headers.get("location");
 
     console.log({
       status: response.status,
       contentType,
       durationMs
     });
+
+    if (isAuthRedirect(response.status, location) || isLoginPlainTextResponse(contentType, location, text)) {
+      throw new AppError(
+        "LINKEDIN_AUTH_FAILED",
+        "LinkedIn session is invalid or expired.",
+        401,
+        response.status
+      );
+    }
+
+    if (isUnexpectedRedirect(response.status)) {
+      throw new AppError(
+        "LINKEDIN_REQUEST_FAILED",
+        "LinkedIn redirected the request instead of returning profile data.",
+        502,
+        response.status
+      );
+    }
 
     if (!response.ok) {
       throw linkedInError(response.status);
@@ -94,6 +114,26 @@ export async function linkedinRequest({
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function isAuthRedirect(status, location) {
+  return isRedirectStatus(status) && /\/(?:uas\/login|login|authwall|checkpoint)\b/i.test(location || "");
+}
+
+function isLoginPlainTextResponse(contentType, location, text) {
+  return (
+    /^text\/plain\b/i.test(contentType || "") &&
+    /\/(?:uas\/login|login|authwall|checkpoint)\b/i.test(location || "") &&
+    text.length === 0
+  );
+}
+
+function isUnexpectedRedirect(status) {
+  return isRedirectStatus(status);
+}
+
+function isRedirectStatus(status) {
+  return [301, 302, 303, 307, 308].includes(status);
 }
 
 function linkedInError(status) {

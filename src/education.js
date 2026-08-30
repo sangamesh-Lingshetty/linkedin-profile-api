@@ -1,11 +1,14 @@
 import { AppError, linkedinRequest } from "./linkedin-client.js";
 import {
+  extractNextEducationStart,
   extractEducationPaginationInfo,
   parseEducation
 } from "./rsc-parser.js";
 
 const PAGER_ID = "com.linkedin.sdui.pagers.profile.details.education";
 const SCREEN_ID = "com.linkedin.sdui.flagshipnav.profile.ProfileEducationDetails";
+const PAGE_SIZE = 10;
+const MAX_PAGES = 20;
 
 export async function getEducation(vanityName) {
   const referer = `https://www.linkedin.com/in/${encodeURIComponent(vanityName)}/details/education/`;
@@ -26,25 +29,42 @@ export async function getEducation(vanityName) {
 
   const paginationInfo = extractEducationPaginationInfo(screenResponse.text);
 
-  const paginationResponse = await linkedinRequest({
-    path: `/flagship-web/rsc-action/actions/pagination?sduiid=${PAGER_ID}`,
-    method: "POST",
-    referer,
-    headers: {
-      "x-li-rsc-stream": "true",
-      "x-li-anchor-page-key": "d_flagship3_profile_view_base_education_details"
-    },
-    body: buildEducationPaginationBody(vanityName, paginationInfo)
-  });
+  const allEntries = [];
+  let nextStart = 0;
+  let durationMs = screenResponse.durationMs;
+  let linkedinStatus = screenResponse.status;
+  const requestedStarts = new Set();
 
-  assertRscResponse(paginationResponse);
+  for (let page = 0; page < MAX_PAGES && nextStart !== null; page++) {
+    requestedStarts.add(nextStart);
 
-  const entries = parseEducation(paginationResponse.text);
+    const paginationResponse = await linkedinRequest({
+      path: `/flagship-web/rsc-action/actions/pagination?sduiid=${PAGER_ID}`,
+      method: "POST",
+      referer,
+      headers: {
+        "x-li-rsc-stream": "true",
+        "x-li-anchor-page-key": "d_flagship3_profile_view_base_education_details"
+      },
+      body: buildEducationPaginationBody(vanityName, paginationInfo, nextStart)
+    });
+
+    assertRscResponse(paginationResponse);
+
+    allEntries.push(...parseEducation(paginationResponse.text));
+    nextStart = extractNextEducationStart(paginationResponse.text);
+    if (nextStart !== null && requestedStarts.has(nextStart)) {
+      nextStart = null;
+    }
+
+    durationMs += paginationResponse.durationMs;
+    linkedinStatus = paginationResponse.status;
+  }
 
   return {
-    entries,
-    linkedinStatus: paginationResponse.status,
-    durationMs: screenResponse.durationMs + paginationResponse.durationMs
+    entries: dedupeEducation(allEntries),
+    linkedinStatus,
+    durationMs
   };
 }
 
@@ -84,12 +104,12 @@ function buildEducationScreenBody(vanityName) {
   };
 }
 
-function buildEducationPaginationBody(vanityName, paginationInfo) {
+function buildEducationPaginationBody(vanityName, paginationInfo, start) {
   const payload = {
     vanityName,
     profileId: paginationInfo.profileId,
-    start: 0,
-    count: 10,
+    start,
+    count: PAGE_SIZE,
     detailSectionReplaceableComponentRef:
       paginationInfo.detailSectionReplaceableComponentRef
   };
@@ -129,6 +149,23 @@ function buildEducationPaginationBody(vanityName, paginationInfo) {
       }
     }
   };
+}
+
+function dedupeEducation(education) {
+  const seen = new Set();
+
+  return education.filter((entry) => {
+    const key = [entry.school, entry.degree, entry.dateRange]
+      .map((value) => String(value || "").toLowerCase())
+      .join("|");
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }
 
 function assertRscResponse(response) {

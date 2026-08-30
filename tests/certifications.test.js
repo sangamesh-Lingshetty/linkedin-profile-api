@@ -60,6 +60,158 @@ test("parses optional certification fields when present", () => {
   assert.deepEqual(certification.media, []);
 });
 
+test("parses public certification rows when ids are absent", () => {
+  const raw = [
+    '1:{"children":["Licenses & certifications"]}',
+    '2:{"viewName":"license-certifications-lockup-view","children":["SnowPro Core Certification"]}',
+    '3:{"children":["Snowflake"]}',
+    '4:{"children":["Issued Nov 2020 \\u00b7 Expired Dec 2022"]}',
+    '5:{"viewName":"license-certifications-lockup-view","children":["Data Science with Python"]}',
+    '6:{"children":["Simplilearn"]}',
+    '7:{"children":["Issued Apr 2018"]}',
+    '8:{"children":["Credential ID 737778"]}'
+  ].join("\n");
+
+  assert.deepEqual(parseCertifications(raw), [
+    {
+      id: null,
+      name: "SnowPro Core Certification",
+      issuingOrganization: "Snowflake",
+      issueDate: "Nov 2020",
+      expirationDate: "Dec 2022",
+      credentialId: null,
+      credentialUrl: null,
+      issuerLogo: null,
+      media: []
+    },
+    {
+      id: null,
+      name: "Data Science with Python",
+      issuingOrganization: "Simplilearn",
+      issueDate: "Apr 2018",
+      expirationDate: null,
+      credentialId: "737778",
+      credentialUrl: null,
+      issuerLogo: null,
+      media: []
+    }
+  ]);
+});
+
+test("parses public certification rows without issue dates", () => {
+  const raw = [
+    '1:{"children":["Licenses & certifications"]}',
+    '2:{"viewName":"license-certifications-lockup-view","children":["Analyzing and Visualizing Data with Microsoft Power BI"]}',
+    '3:{"children":["LinkedIn Learning"]}',
+    '4:{"children":["Analyzing and Visualizing Data with Microsoft Power BI"]}',
+    '5:{"children":["LinkedIn Learning ⋅ Course Certificate"]}',
+    '6:{"viewName":"license-certifications-lockup-view","children":["R Studio"]}',
+    '7:{"children":["ExcelR"]}',
+    '8:{"children":["Issued Aug 2017"]}'
+  ].join("\n");
+
+  assert.deepEqual(parseCertifications(raw).map((certification) => ({
+    name: certification.name,
+    issuingOrganization: certification.issuingOrganization,
+    issueDate: certification.issueDate
+  })), [
+    {
+      name: "Analyzing and Visualizing Data with Microsoft Power BI",
+      issuingOrganization: "LinkedIn Learning",
+      issueDate: null
+    },
+    {
+      name: "R Studio",
+      issuingOrganization: "ExcelR",
+      issueDate: "Aug 2017"
+    }
+  ]);
+});
+
+test("merges public certification rows that do not have lockup anchors", () => {
+  const raw = [
+    '1:{"children":["Licenses & certifications"]}',
+    '2:{"viewName":"license-certifications-lockup-view","children":["Google Analytics"]}',
+    '3:{"children":["Google"]}',
+    '4:{"children":["Issued Oct 2017"]}',
+    '5:{"children":["Google AdWords"]}',
+    '6:{"children":["Google"]}'
+  ].join("\n");
+
+  assert.deepEqual(parseCertifications(raw).map((certification) => ({
+    name: certification.name,
+    issuingOrganization: certification.issuingOrganization,
+    issueDate: certification.issueDate
+  })), [
+    {
+      name: "Google Analytics",
+      issuingOrganization: "Google",
+      issueDate: "Oct 2017"
+    },
+    {
+      name: "Google AdWords",
+      issuingOrganization: "Google",
+      issueDate: null
+    }
+  ]);
+});
+
+test("does not duplicate certification rows from course certificate metadata", () => {
+  const raw = [
+    '1:{"children":["Licenses & certifications"]}',
+    '2:{"viewName":"license-certifications-lockup-view","children":["Analyzing and Visualizing Data with Microsoft Power BI"]}',
+    '3:{"children":["LinkedIn Learning"]}',
+    '4:{"children":["Analyzing and Visualizing Data with Microsoft Power BI"]}',
+    '5:{"children":["LinkedIn Learning â‹… Course Certificate"]}'
+  ].join("\n");
+
+  assert.equal(parseCertifications(raw).length, 1);
+});
+
+test("rejects malformed public certification rows", () => {
+  const raw = [
+    '1:{"children":["Licenses & certifications"]}',
+    '2:{"viewName":"license-certifications-lockup-view","children":[",null,{"]}',
+    '3:{"children":[",null,{"]}',
+    '4:{"viewName":"license-certifications-lockup-view","children":["Real Certification"]}',
+    '5:{"children":["Real Issuer"]}'
+  ].join("\n");
+
+  assert.deepEqual(parseCertifications(raw).map((certification) => ({
+    name: certification.name,
+    issuingOrganization: certification.issuingOrganization
+  })), [
+    {
+      name: "Real Certification",
+      issuingOrganization: "Real Issuer"
+    }
+  ]);
+});
+
+test("does not leak certification metadata across public rows", () => {
+  const raw = [
+    '1:{"children":["Licenses & certifications"]}',
+    '2:{"viewName":"license-certifications-lockup-view","children":["Certification One"]}',
+    '3:{"children":["Issuer One"]}',
+    '4:{"children":["Issued Jan 2024"]}',
+    '5:{"children":["Credential ID ABC"]}',
+    '6:{"url":"https://credentials.example.test/abc"}',
+    '7:{"renderPayload":{"rootUrl":"https://media.licdn.com/company-logo_","imageRenditions":[{"width":400,"height":400,"suffixUrl":"large"}]}}',
+    '8:{"viewName":"license-certifications-lockup-view","children":["Certification Two"]}',
+    '9:{"children":["Issuer Two"]}',
+    'a:{"children":["Issued Feb 2024"]}'
+  ].join("\n");
+
+  const [first, second] = parseCertifications(raw);
+
+  assert.equal(first.credentialId, "ABC");
+  assert.equal(first.credentialUrl, "https://credentials.example.test/abc");
+  assert.equal(first.issuerLogo, "https://media.licdn.com/company-logo_large");
+  assert.equal(second.credentialId, null);
+  assert.equal(second.credentialUrl, null);
+  assert.equal(second.issuerLogo, null);
+});
+
 test("extracts next certifications page start", () => {
   const raw = readFixture("certifications-pagination-page-1-rsc.txt");
 

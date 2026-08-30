@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseExperience } from "../src/rsc-parser.js";
+import {
+  extractExperienceSkillAssociations,
+  parseExperience,
+  parseExperienceSkillAssociationDetails
+} from "../src/rsc-parser.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -116,6 +120,46 @@ test("parses grouped company roles without shifting parent fields", () => {
   ]);
 });
 
+test("parses company names containing India and grouped children", () => {
+  const raw = [
+    '1:{"children":["Experience"]}',
+    '2:{"children":["Senior Manager - Demand Planning"]}',
+    '3:{"children":["Lowe\\u0027s India \\u00b7 Full-time"]}',
+    '4:{"children":["May 2022 - Present \\u00b7 4 yrs 4 mos"]}',
+    '5:{"children":["Bengaluru, Karnataka, India \\u00b7 Hybrid"]}',
+    '6:{"children":["AB InBev India"]}',
+    '7:{"children":["Full-time \\u00b7 3 yrs 5 mos"]}',
+    '8:{"children":["Bengaluru, Karnataka, India"]}',
+    '9:{"children":["Demand Planning Manager"]}',
+    'a:{"children":["Jul 2020 - May 2022 \\u00b7 1 yr 11 mos"]}'
+  ].join("\n");
+
+  assert.deepEqual(parseExperience(raw).slice(0, 2), [
+    {
+      title: "Senior Manager - Demand Planning",
+      company: "Lowe's India",
+      employmentType: "Full-time",
+      dateRange: "May 2022 - Present",
+      duration: "4 yrs 4 mos",
+      location: "Bengaluru, Karnataka, India",
+      workMode: "Hybrid",
+      description: null,
+      skills: []
+    },
+    {
+      title: "Demand Planning Manager",
+      company: "AB InBev India",
+      employmentType: "Full-time",
+      dateRange: "Jul 2020 - May 2022",
+      duration: "1 yr 11 mos",
+      location: "Bengaluru, Karnataka, India",
+      workMode: null,
+      description: null,
+      skills: []
+    }
+  ]);
+});
+
 test("does not use location, employment type, or duration as experience fields", () => {
   const raw = [
     '1:{"children":["Experience"]}',
@@ -139,5 +183,59 @@ test("does not use location, employment type, or duration as experience fields",
       description: null,
       skills: []
     }
+  ]);
+});
+
+test("extracts experience skill association contracts", () => {
+  const raw = [
+    '1:{"children":["Experience"]}',
+    '2:{"payload":{"vanityName":"example","associationType":"position","associationId":"2593285733","associationTitle":"Member Technical Staff -1 at Aquera","isVanityNameResolved":true},"requestMetadata":{"$type":"proto.sdui.common.RequestMetadata"}}',
+    '3:{"payload":{"vanityName":"example","associationType":"education","associationId":"ignore","associationTitle":"Ignored","isVanityNameResolved":true},"requestMetadata":{"$type":"proto.sdui.common.RequestMetadata"}}',
+    '4:{"payload":{"vanityName":"example","associationType":"position","associationId":"2593285733","associationTitle":"Member Technical Staff -1 at Aquera","isVanityNameResolved":true},"requestMetadata":{"$type":"proto.sdui.common.RequestMetadata"}}'
+  ].join("\n");
+
+  assert.deepEqual(extractExperienceSkillAssociations(raw), [
+    {
+      associationType: "position",
+      associationId: "2593285733",
+      associationTitle: "Member Technical Staff -1 at Aquera"
+    }
+  ]);
+});
+
+test("parses experience skill association details and removes duplicates/noise", () => {
+  const raw = [
+    '1:{"children":["Learn more about these skills"]}',
+    '2:{"children":["Discover jobs, people, learning content and conversations about these skills"]}',
+    '2a:{"aria-label":"Collapsed, Suggested content","children":["Suggested content"]}',
+    '3:{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 1760560923)","aria-label":"Collapsed, Node.js","children":["Node.js"]}',
+    '4:{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 1760560923)","aria-label":"Expanded, Node.js","children":["Node.js"]}',
+    '5:{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 4)","aria-label":"Collapsed, Amazon Web Services (AWS)","children":["Amazon Web Services (AWS)"]}',
+    '6:{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 5)","aria-label":"Collapsed, Express.js","children":["Express.js"]}',
+    '7:{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 6)","aria-label":"Collapsed, PostgreSQL","children":["PostgreSQL"]}',
+    '8:{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 1600533160)","aria-label":"Collapsed, JavaScript","children":["JavaScript"]}'
+  ].join("\n");
+
+  assert.deepEqual(parseExperienceSkillAssociationDetails(raw), [
+    "Node.js",
+    "Amazon Web Services (AWS)",
+    "Express.js",
+    "PostgreSQL",
+    "JavaScript"
+  ]);
+});
+
+test("parses experience association skills from component-local RSC refs", () => {
+  const raw = [
+    '1:["$","$L8",null,{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 1760560923)","children":["$","div",null,{"children":["$","$L1a",null,{"children":[["$L1b"]]}]}]}]',
+    '2:["$","$L8",null,{"componentKey":"com.linkedin.sdui.profile.skill(ACoAAAExample123, 4)","children":["$","div",null,{"children":["$","$L1a",null,{"children":[["$L25"]]}]}]}]',
+    '3:["Collapsed",["$","$L8",null,{"componentKey":"unrelated-btn","aria-label":"Collapsed, Suggested content"}]]',
+    '1b:["$","$L41",null,{"textProps":{"children":["Node.js"]}}]',
+    '25:["$","$L41",null,{"textProps":{"children":["Amazon Web Services (AWS)"]}}]'
+  ].join("\n");
+
+  assert.deepEqual(parseExperienceSkillAssociationDetails(raw), [
+    "Node.js",
+    "Amazon Web Services (AWS)"
   ]);
 });

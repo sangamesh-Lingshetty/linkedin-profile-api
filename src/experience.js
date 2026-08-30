@@ -1,5 +1,12 @@
 import { AppError, linkedinRequest } from "./linkedin-client.js";
-import { parseExperience } from "./rsc-parser.js";
+import {
+  extractExperienceSkillAssociations,
+  parseExperience,
+  parseExperienceSkillAssociationDetails
+} from "./rsc-parser.js";
+
+const SKILL_ASSOCIATION_SCREEN_ID =
+  "com.linkedin.sdui.flagshipnav.profile.ProfileSkillAssociationDetailsScreen";
 
 export async function getExperience(vanityName) {
   const path = `/flagship-web/in/${encodeURIComponent(vanityName)}/details/experience/`;
@@ -34,12 +41,91 @@ export async function getExperience(vanityName) {
       502,
     );
   }
+  const associations = extractExperienceSkillAssociations(response.text);
+  await enrichExperienceSkills(entries, associations, vanityName, referer);
 
   return {
     entries,
     linkedinStatus: response.status,
     durationMs: response.durationMs,
   };
+}
+
+async function enrichExperienceSkills(entries, associations, vanityName, referer) {
+  const associationsByTitle = new Map(
+    associations.map((association) => [
+      normalizeAssociationTitle(association.associationTitle),
+      association
+    ])
+  );
+
+  for (const entry of entries) {
+    const association = associationsByTitle.get(normalizeAssociationTitle(`${entry.title} at ${entry.company}`));
+    if (!association) {
+      continue;
+    }
+
+    try {
+      const response = await linkedinRequest({
+        path:
+          `/flagship-web/rsc-action/actions/navigation` +
+          `?screenId=${encodeURIComponent(SKILL_ASSOCIATION_SCREEN_ID)}` +
+          `&sduiid=${encodeURIComponent(SKILL_ASSOCIATION_SCREEN_ID)}`,
+        method: "POST",
+        referer,
+        headers: {
+          "x-li-rsc-stream": "true",
+          "x-li-anchor-page-key": "d_flagship3_profile_view_base_position_details"
+        },
+        body: buildSkillAssociationBody(vanityName, association)
+      });
+
+      assertRscResponse(response);
+      entry.skills = parseExperienceSkillAssociationDetails(response.text).filter(
+        (skill) => normalizeAssociationTitle(skill) !== normalizeAssociationTitle(association.associationTitle)
+      );
+    } catch {
+      entry.skills = [];
+    }
+  }
+}
+
+function buildSkillAssociationBody(vanityName, association) {
+  return {
+    clientArguments: {
+      $type: "proto.sdui.actions.requests.RequestedArguments",
+      requestedStateKeys: [],
+      payload: {
+        vanityName,
+        associationType: association.associationType,
+        associationId: association.associationId,
+        associationTitle: association.associationTitle,
+        isVanityNameResolved: true
+      },
+      requestMetadata: {
+        $type: "proto.sdui.common.RequestMetadata"
+      },
+      states: [],
+      screenId: SKILL_ASSOCIATION_SCREEN_ID,
+      knownTemplateIds: []
+    },
+    isModal: true
+  };
+}
+
+function normalizeAssociationTitle(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function assertRscResponse(response) {
+  if (response.text.trimStart().toLowerCase().startsWith("<!doctype html")) {
+    throw new AppError(
+      "LINKEDIN_REQUEST_FAILED",
+      "LinkedIn returned HTML instead of the RSC/SDUI stream.",
+      502,
+      response.status
+    );
+  }
 }
 
 function buildExperienceRequestBody(vanityName) {
