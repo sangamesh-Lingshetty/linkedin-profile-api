@@ -130,68 +130,221 @@ Content-Type: application/json
 
 ```json
 {
-  "profileUrl": "https://www.linkedin.com/in/sangamesh-lingshetty-5a6647279/",
-  "vanityName": "shivam-singh-478620217",
-  "profile": {
-    "name": "Shivam Singh",
-    "headline": "Backend Engineer | Node js | Java Script | Type Script | Express Js | Microservices | MongoDB | Postgre Sql | AWS | Docker Actively looking for new Opportunities",
-    "location": "Saharanpur, Uttar Pradesh, India",
-    "pronouns": null
-  },
-  "images": {
-    "profile": null,
-    "background": null
-  },
-  "about": "Profile about text...",
-  "experience": [
-    {
-      "title": "Software Engineer",
-      "company": "Appinventiv",
-      "employmentType": "Full-time",
-      "dateRange": "Sep 2022 - Present",
-      "duration": "4 yrs",
-      "location": "Noida, Uttar Pradesh, India",
-      "workMode": null,
-      "description": null,
-      "skills": [
-        "NoSQL",
-        "Database Design",
-        "Angular",
-        "Databases",
-        "Node.js",
-        "REST APIs"
-      ]
-    }
-  ],
-  "education": [
-    {
-      "school": "DIT UNIVERSITY",
-      "degree": "Bachelor of Technology - BTech",
-      "fieldOfStudy": "Computer Science",
-      "dateRange": "2018 – 2022",
-      "grade": null,
-      "activities": [],
-      "description": null,
-      "schoolLogo": null
-    }
-  ],
-  "skills": [
-    {
-      "id": "1050238573",
-      "name": "NoSQL"
+    "profileUrl": "https://www.linkedin.com/in/sangamesh-lingshetty-5a6647279/",
+    "vanityName": "sangamesh-lingshetty-5a6647279",
+    "profile": {
+        "name": "Sangamesh Lingshetty",
+        "headline": "Software Engineer | Backend & Full Stack | Node.js, TypeScript, AWS, PostgreSQL, React | 1.5 YOE | Bengaluru / Remote India",
+        "location": "Greater Bengaluru Area",
+        "pronouns": "He/Him"
     },
-    {
-      "id": "1305218168",
-      "name": "Node.js"
+    "images": {
+        "profile": "https://media.licdn.com/dms/image/v2/D4D03AQEet5qqs5AXEg/profile-displayphoto-crop_800_800/B4DZ6Jr1qmKoAI-/0/1780426434989?e=1789603200&v=beta&t=izOxIpWTS79gpUfvNzGNyN9QBuQnVdyisuosSyupFb4",
+        "background": "https://media.licdn.com/dms/image/v2/D4D16AQHoriJ2nhYpCw/profile-displaybackgroundimage-shrink_350_1400/B4DZ9xqOa5KsAU-/0/1784318322816?e=1789603200&v=beta&t=Q0WMzIEjTVM6jTfOrV9oiwWu9kPhz2xKflO9AnggbjU"
+    },
+    "about": "I’m a Backend / Full Stack Engineer with 1.5 years of experience building scalable APIs, integrations, and SaaS products using Node.js, TypeScript, AWS, PostgreSQL, Redis, MongoDB, and React.\nCurrently, I work at Aquera, My work includes API integrations, data sync flows, error handling, debugging production issues, and building reliable backend workflows.\nOutside work, I build and ship real products end to end:\nDeepLock: Android app + Chrome extension for focus and app blocking\nJob Autofill: Chrome extension that helps users fill job applications faster\nNextOffer: AI job discovery agent that finds fresh backend/full-stack jobs from direct ATS sources\nGetQuest: AI-powered vendor security questionnaire automation platform\nI’m actively looking for Backend Engineer, Full Stack Engineer, Software Engineer, and AI Engineer roles where I can work on APIs, backend systems, SaaS platforms, AI integrations, and scalable product engineering.\nCore stack: Node.js, TypeScript, Express.js, React, Next.js, PostgreSQL, MongoDB, Redis, AWS Lambda, SQS, S3, Docker, REST APIs, GitHub Actions.",
+    "experience": [
+        {
+            "title": "Member Technical Staff -1",
+            "company": "Aquera",
+            "employmentType": "Full-time",
+            "dateRange": "Feb 2025 - Present",
+            "duration": "1 yr 7 mos",
+            "location": "Bengaluru, Karnataka, India",
+            "workMode": "On-site",
+            "description": "Backend Engineer - Aquera\nFeb 2025 - Present | Bengaluru, India\nBuilt backend APIs and enterprise integrations using Node.js, REST APIs, AWS, PostgreSQL, and event-driven workflows.\n\nWorked on integrations with Entra ID, Okta, ADP, Workday, Dayforce, ServiceNow, and Active Directory.\n\nDebugged production issues, handled API failures, improved error handling, and supported customer-facing integration flows.\n\nBuilt scalable backend logic for user provisioning, deprovisioning, identity sync, and HRIS workflows.\nSkills: Microservices Architecture • AWS Lambda • Node.js • API Development • DevOps • Team Leadership",
+            "skills": [
+                "Node.js",
+                "Amazon Web Services (AWS)",
+                "Express.js",
+                "PostgreSQL",
+                "JavaScript"
+            ]
+        }
+    ],
+    "education": [
+        {
+            "school": "Dayananda Sagar University",
+            "degree": "Bachelor of Engineering - BE",
+            "fieldOfStudy": "Computer Science",
+            "dateRange": "Nov 2022 – Jun 2025",
+            "grade": "Bachelor of Technology - Computer Science & Engineering",
+            "activities": [
+                "Special Recognition Award (2025)",
+                "Hackathon Winner (College-level)",
+                "Problem Solving: 100+ LeetCode problems solved"
+            ],
+            "description": "Relevant Coursework: Data Structures & Algorithms • Database Management Systems • Operating Systems • Computer Networks • Cloud Computing • Software Engineering",
+            "schoolLogo": null
+        }
+    ],
+    "skills": [
+        {
+            "id": "565475854",
+            "name": "Generative AI"
+        },
+        {
+            "id": "1760560923",
+            "name": "Node.js"
+        },
+        {
+            "id": "4",
+            "name": "Amazon Web Services (AWS)"
+        },
+        {
+            "id": "2079023045",
+            "name": "Continuous Integration and Continuous Delivery (CI/CD)"
+        },
+        {
+            "id": "2078881723",
+            "name": "Systems Design"
+        },
+        {
+            "id": "2078901449",
+            "name": "Microservices Architecture"
+        },
+        {
+            "id": "1760560925",
+            "name": "MongoDB"
+        },
+        {
+            "id": "6",
+            "name": "PostgreSQL"
+        },
+        {
+            "id": "134661385",
+            "name": "Software Development"
+        },
+        {
+            "id": "1760560922",
+            "name": "Full-Stack Development"
+        },
+        {
+            "id": "1760560931",
+            "name": "Back-End Web Development"
+        },
+        {
+            "id": "1600533160",
+            "name": "JavaScript"
+        },
+        {
+            "id": "5",
+            "name": "Express.js"
+        },
+        {
+            "id": "1760560935",
+            "name": "Machine Learning"
+        },
+        {
+            "id": "1760560916",
+            "name": "Firebase"
+        },
+        {
+            "id": "1760560932",
+            "name": "GitHub"
+        },
+        {
+            "id": "1760560928",
+            "name": "Computer Science Education"
+        },
+        {
+            "id": "188918615",
+            "name": "Debugging"
+        },
+        {
+            "id": "2",
+            "name": "HTML5"
+        },
+        {
+            "id": "3",
+            "name": "Css3"
+        },
+        {
+            "id": "1760560927",
+            "name": "Tailwind CSS"
+        },
+        {
+            "id": "665970567",
+            "name": "Responsive Web Design"
+        },
+        {
+            "id": "188870939",
+            "name": "React.js"
+        },
+        {
+            "id": "24629764",
+            "name": "Document Object Model (DOM)"
+        },
+        {
+            "id": "705474631",
+            "name": "Redux.js"
+        },
+        {
+            "id": "1760560926",
+            "name": "Next.js"
+        },
+        {
+            "id": "2006604222",
+            "name": "Java"
+        },
+        {
+            "id": "1",
+            "name": "C (Programming Language)"
+        },
+        {
+            "id": "1796014201",
+            "name": "Web Development"
+        },
+        {
+            "id": "1760560917",
+            "name": "Role-Based Access Control (RBAC)"
+        },
+        {
+            "id": "665986986",
+            "name": "Teamwork"
+        },
+        {
+            "id": "665958567",
+            "name": "Communication"
+        },
+        {
+            "id": "207824643",
+            "name": "Problem Solving"
+        },
+        {
+            "id": "1255318316",
+            "name": "Skill Development"
+        }
+    ],
+    "certifications": [
+        {
+            "id": null,
+            "name": "Special Appreciation",
+            "issuingOrganization": "Aquera",
+            "issueDate": "Sep 2025",
+            "expirationDate": null,
+            "credentialId": null,
+            "credentialUrl": null,
+            "issuerLogo": "https://media.licdn.com/dms/image/v2/D560BAQGTBr55hlk8hA/company-logo_400_400/B56ZUg0IL8GoAY-/0/1740012291416/aquera_logo?e=1789603200&v=beta&t=6C9uMatWUDeBuSLI0YYL5c93sns0SPqYGz2kDnW6tvI",
+            "media": [
+                {
+                    "name": "20251012_103828.jpg",
+                    "url": "https://media.licdn.com/dms/image/v2/D562DAQHc6o8hxZL_zA/profile-treasury-image-shrink_8192_8192/B56ZnW0f80JkAg-/0/1760245713072?e=1788674400&v=beta&t=LwQmKLyDAa9HoeHLKtrZq6GrV458QpZb9JiD7gOhSyY"
+                }
+            ]
+        }
+    ],
+    "languages": [
+        {
+            "name": "English",
+            "proficiency": "Professional working proficiency"
+        }
+    ],
+    "meta": {
+        "source": "linkedin",
+        "partial": false,
+        "warnings": []
     }
-  ],
-  "certifications": [],
-  "languages": [],
-  "meta": {
-    "source": "linkedin",
-    "partial": false,
-    "warnings": []
-  }
 }
 ```
 
