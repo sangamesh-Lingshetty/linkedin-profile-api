@@ -1,6 +1,6 @@
 import "dotenv/config";
 import crypto from "node:crypto";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import express from "express";
 import { getAbout } from "./about.js";
 import { getBasicProfile } from "./basic-profile.js";
@@ -13,6 +13,7 @@ import { AppError } from "./linkedin-client.js";
 import { extractVanityName, normalizeProfileUrl } from "./linkedin-url.js";
 
 const app = express();
+const publicDir = fileURLToPath(new URL("../public", import.meta.url));
 
 app.use(express.json({ limit: "64kb" }));
 
@@ -20,6 +21,8 @@ app.use((req, res, next) => {
   req.id = req.get("x-request-id") || crypto.randomUUID();
   next();
 });
+
+app.use(express.static(publicDir));
 
 app.get("/health", (req, res) => {
   res.json({ ok: true });
